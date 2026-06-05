@@ -1,0 +1,95 @@
+# DataBridge - Docker Compose
+# Starts all required services for local development
+
+version: "3.8"
+
+services:
+  # Application Database (PostgreSQL)
+  db:
+    image: postgres:16-alpine
+    container_name: databridge-db
+    environment:
+      POSTGRES_USER: databridge
+      POSTGRES_PASSWORD: databridge
+      POSTGRES_DB: databridge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U databridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (Celery Broker & Result Backend)
+  redis:
+    image: redis:7-alpine
+    container_name: databridge-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (FastAPI)
+  backend:
+    build: ./backend
+    container_name: databridge-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://databridge:databridge@db:5432/databridge
+      DATABASE_SYNC_URL: postgresql+psycopg2://databridge:databridge@db:5432/databridge
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production-minimum-32-chars
+      ENCRYPTION_KEY: dev-encryption-key-change-in-production
+      DEBUG: "true"
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  worker:
+    build: ./backend
+    container_name: databridge-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://databridge:databridge@db:5432/databridge
+      DATABASE_SYNC_URL: postgresql+psycopg2://databridge:databridge@db:5432/databridge
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production-minimum-32-chars
+      ENCRYPTION_KEY: dev-encryption-key-change-in-production
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+
+  # Frontend (React + Vite)
+  frontend:
+    build: ./frontend
+    container_name: databridge-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
