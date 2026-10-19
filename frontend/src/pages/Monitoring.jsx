@@ -159,23 +159,29 @@ function Monitoring() {
               <div className="card-header">
                 <div className="card-title">Transfers (Last 7 Days)</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '200px', padding: '16px 0' }}>
+              <div
+                className="bar-chart"
+                role="img"
+                aria-label={`Transfers per day over the last 7 days. Peak ${maxDailyCount}.`}
+              >
                 {metrics?.daily_transfers?.map((day) => {
-                  const heightPct = maxDailyCount > 0 ? (day.count / maxDailyCount * 100) : 0;
+                  const heightPct = maxDailyCount > 0
+                    ? Math.max((day.count / maxDailyCount) * 100, 3)
+                    : 3;
+                  const label = new Date(day.date).toLocaleDateString('en', {
+                    weekday: 'short',
+                  });
                   return (
-                    <div key={day.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <span className="text-xs font-bold">{day.count}</span>
-                      <div style={{
-                        width: '100%',
-                        height: `${Math.max(heightPct, 4)}%`,
-                        background: 'var(--gradient-primary)',
-                        borderRadius: 'var(--radius-sm)',
-                        minHeight: '4px',
-                        transition: 'height 0.5s ease',
-                      }}></div>
-                      <span className="text-xs text-muted">
-                        {new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}
-                      </span>
+                    <div key={day.date} className="bar-chart-column">
+                      <span className="bar-chart-value text-xs font-bold">{day.count}</span>
+                      <div className="bar-chart-track">
+                        <div
+                          className="bar-chart-bar"
+                          style={{ height: `${heightPct}%` }}
+                          title={`${label}: ${day.count} transfer${day.count === 1 ? '' : 's'}`}
+                        />
+                      </div>
+                      <span className="text-xs text-muted">{label}</span>
                     </div>
                   );
                 })}
