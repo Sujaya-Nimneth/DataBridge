@@ -19,6 +19,7 @@ from app.enums import ConnectionStatus, DatabaseType
 from app.schemas.connection import ConnectionCreate, ConnectionUpdate, ConnectionResponse, ConnectionTest
 from app.security import encrypt_value, decrypt_value
 from app.config import settings
+from app.services.engine_cache import engine_cache
 from fastapi import HTTPException, status
 
 
@@ -129,6 +130,7 @@ class ConnectionService:
 
         await self.db.flush()
         await self.db.refresh(conn)
+        self.invalidate_engine(connection_id)
         return self._to_response(conn)
 
     async def delete_connection(
@@ -161,6 +163,7 @@ class ConnectionService:
 
         await self.db.delete(conn)
         await self.db.flush()
+        self.invalidate_engine(connection_id)
         return {"message": "Connection deleted successfully"}
 
     async def test_connection(
@@ -215,13 +218,46 @@ class ConnectionService:
         """Get the raw connection model (for internal use by other services)."""
         return await self._get_connection_or_404(connection_id, user_id)
 
+    @staticmethod
+    def _fingerprint(conn: DatabaseConnection) -> tuple:
+        """Identify the credential/endpoint set an engine was built for."""
+        return (
+            conn.host,
+            conn.port,
+            conn.database_name,
+            conn.username,
+            conn.password,
+            conn.db_type.value,
+            conn.ssl_enabled,
+            conn.updated_at.isoformat() if conn.updated_at else None,
+        )
+
     def get_sync_engine(self, conn: DatabaseConnection):
-        """Create a short-lived synchronous engine for a remote connection."""
-        return create_engine(
+        """
+        Return a pooled engine for a remote connection, reusing a cached one
+        when the credentials and endpoint are unchanged.
+        """
+        key = str(conn.id)
+        fingerprint = self._fingerprint(conn)
+
+        cached = engine_cache.get(key, fingerprint)
+        if cached is not None:
+            return cached
+
+        engine = create_engine(
             self.build_url(conn, sync=True),
             connect_args=self.connect_args(conn),
-            poolclass=NullPool,
+            pool_size=2,
+            max_overflow=2,
+            pool_pre_ping=True,
+            pool_recycle=1800,
         )
+        return engine_cache.put(key, fingerprint, engine)
+
+    @staticmethod
+    def invalidate_engine(connection_id: UUID) -> None:
+        """Drop a cached engine, e.g. after an update or delete."""
+        engine_cache.invalidate(str(connection_id))
 
     async def _get_connection_or_404(
         self, connection_id: UUID, user_id: UUID

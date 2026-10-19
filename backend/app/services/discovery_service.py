@@ -77,17 +77,14 @@ class DiscoveryService:
 
     def _get_schemas_sync(self, conn: DatabaseConnection) -> list[SchemaInfo]:
         engine = self.conn_service.get_sync_engine(conn)
-        try:
-            inspector = inspect(engine)
-            schemas = []
-            for name in inspector.get_schema_names():
-                if name in SYSTEM_SCHEMAS:
-                    continue
-                table_count = len(inspector.get_table_names(schema=name))
-                schemas.append(SchemaInfo(name=name, table_count=table_count))
-            return sorted(schemas, key=lambda s: s.name)
-        finally:
-            engine.dispose()
+        inspector = inspect(engine)
+        schemas = []
+        for name in inspector.get_schema_names():
+            if name in SYSTEM_SCHEMAS:
+                continue
+            table_count = len(inspector.get_table_names(schema=name))
+            schemas.append(SchemaInfo(name=name, table_count=table_count))
+        return sorted(schemas, key=lambda s: s.name)
 
     async def get_tables(
         self, connection_id: UUID, user_id: UUID, schema: Optional[str] = None
@@ -100,27 +97,24 @@ class DiscoveryService:
         self, conn: DatabaseConnection, schema: Optional[str]
     ) -> list[TableInfo]:
         engine = self.conn_service.get_sync_engine(conn)
+        inspector = inspect(engine)
+        schema = schema or _default_schema(conn)
+
+        tables = [
+            TableInfo(name=name, schema_name=schema, type="table")
+            for name in inspector.get_table_names(schema=schema)
+        ]
+
         try:
-            inspector = inspect(engine)
-            schema = schema or _default_schema(conn)
+            tables.extend(
+                TableInfo(name=name, schema_name=schema, type="view")
+                for name in inspector.get_view_names(schema=schema)
+            )
+        except Exception:
+            # Some engines/drivers cannot enumerate views; tables still work.
+            pass
 
-            tables = [
-                TableInfo(name=name, schema_name=schema, type="table")
-                for name in inspector.get_table_names(schema=schema)
-            ]
-
-            try:
-                tables.extend(
-                    TableInfo(name=name, schema_name=schema, type="view")
-                    for name in inspector.get_view_names(schema=schema)
-                )
-            except Exception:
-                # Some engines/drivers cannot enumerate views; tables still work.
-                pass
-
-            return sorted(tables, key=lambda t: t.name)
-        finally:
-            engine.dispose()
+        return sorted(tables, key=lambda t: t.name)
 
     async def get_columns(
         self,
@@ -147,40 +141,37 @@ class DiscoveryService:
         self, conn: DatabaseConnection, table_name: str, schema: Optional[str]
     ) -> list[ColumnInfo]:
         engine = self.conn_service.get_sync_engine(conn)
+        inspector = inspect(engine)
+        schema = schema or _default_schema(conn)
+
         try:
-            inspector = inspect(engine)
-            schema = schema or _default_schema(conn)
+            pk_constraint = inspector.get_pk_constraint(table_name, schema=schema)
+            pk_columns = set(pk_constraint.get("constrained_columns") or [])
+        except Exception:
+            pk_columns = set()
 
-            try:
-                pk_constraint = inspector.get_pk_constraint(table_name, schema=schema)
-                pk_columns = set(pk_constraint.get("constrained_columns") or [])
-            except Exception:
-                pk_columns = set()
+        try:
+            fk_columns = set()
+            for fk in inspector.get_foreign_keys(table_name, schema=schema):
+                fk_columns.update(fk.get("constrained_columns") or [])
+        except Exception:
+            fk_columns = set()
 
-            try:
-                fk_columns = set()
-                for fk in inspector.get_foreign_keys(table_name, schema=schema):
-                    fk_columns.update(fk.get("constrained_columns") or [])
-            except Exception:
-                fk_columns = set()
-
-            columns = []
-            for col in inspector.get_columns(table_name, schema=schema):
-                columns.append(
-                    ColumnInfo(
-                        name=col["name"],
-                        type=str(col["type"]),
-                        nullable=col.get("nullable", True),
-                        default=str(col["default"]) if col.get("default") else None,
-                        is_primary_key=col["name"] in pk_columns,
-                        is_foreign_key=col["name"] in fk_columns,
-                        max_length=getattr(col["type"], "length", None),
-                        comment=col.get("comment"),
-                    )
+        columns = []
+        for col in inspector.get_columns(table_name, schema=schema):
+            columns.append(
+                ColumnInfo(
+                    name=col["name"],
+                    type=str(col["type"]),
+                    nullable=col.get("nullable", True),
+                    default=str(col["default"]) if col.get("default") else None,
+                    is_primary_key=col["name"] in pk_columns,
+                    is_foreign_key=col["name"] in fk_columns,
+                    max_length=getattr(col["type"], "length", None),
+                    comment=col.get("comment"),
                 )
-            return columns
-        finally:
-            engine.dispose()
+            )
+        return columns
 
     async def preview_data(
         self,
@@ -227,50 +218,47 @@ class DiscoveryService:
         filter_query: Optional[str],
     ) -> DataPreview:
         engine = self.conn_service.get_sync_engine(conn)
-        try:
-            schema = schema or _default_schema(conn)
-            qualified_table = qualify_table(engine, schema, table_name)
-            where_clause = f" WHERE {filter_query}" if filter_query else ""
+        schema = schema or _default_schema(conn)
+        qualified_table = qualify_table(engine, schema, table_name)
+        where_clause = f" WHERE {filter_query}" if filter_query else ""
 
-            inspector = inspect(engine)
-            columns_info = inspector.get_columns(table_name, schema=schema)
-            column_names = [c["name"] for c in columns_info]
-            column_types = [str(c["type"]) for c in columns_info]
-            order_column = self._order_column(
-                inspector, table_name, schema, columns_info
+        inspector = inspect(engine)
+        columns_info = inspector.get_columns(table_name, schema=schema)
+        column_names = [c["name"] for c in columns_info]
+        column_types = [str(c["type"]) for c in columns_info]
+        order_column = self._order_column(
+            inspector, table_name, schema, columns_info
+        )
+
+        offset = (page - 1) * page_size
+
+        with engine.connect() as connection:
+            total_rows = connection.execute(
+                text(f"SELECT COUNT(*) FROM {qualified_table}{where_clause}")
+            ).scalar() or 0
+
+            # Ordering is required for stable pagination: without it the
+            # database may return rows in a different order per query, so
+            # pages would duplicate or skip records.
+            order_clause = f" ORDER BY {order_column}" if order_column else ""
+            data_query = (
+                f"SELECT * FROM {qualified_table}{where_clause}"
+                f"{order_clause} LIMIT :limit OFFSET :offset"
             )
-
-            offset = (page - 1) * page_size
-
-            with engine.connect() as connection:
-                total_rows = connection.execute(
-                    text(f"SELECT COUNT(*) FROM {qualified_table}{where_clause}")
-                ).scalar() or 0
-
-                # Ordering is required for stable pagination: without it the
-                # database may return rows in a different order per query, so
-                # pages would duplicate or skip records.
-                order_clause = f" ORDER BY {order_column}" if order_column else ""
-                data_query = (
-                    f"SELECT * FROM {qualified_table}{where_clause}"
-                    f"{order_clause} LIMIT :limit OFFSET :offset"
-                )
-                result = connection.execute(
-                    text(data_query), {"limit": page_size, "offset": offset}
-                )
-                rows = [[_json_safe(v) for v in row] for row in result]
-
-            return DataPreview(
-                columns=column_names,
-                column_types=column_types,
-                rows=rows,
-                total_rows=total_rows,
-                page=page,
-                page_size=page_size,
-                has_more=(offset + page_size) < total_rows,
+            result = connection.execute(
+                text(data_query), {"limit": page_size, "offset": offset}
             )
-        finally:
-            engine.dispose()
+            rows = [[_json_safe(v) for v in row] for row in result]
+
+        return DataPreview(
+            columns=column_names,
+            column_types=column_types,
+            rows=rows,
+            total_rows=total_rows,
+            page=page,
+            page_size=page_size,
+            has_more=(offset + page_size) < total_rows,
+        )
 
     @staticmethod
     def _order_column(
@@ -307,12 +295,9 @@ class DiscoveryService:
         self, conn: DatabaseConnection, table_name: str, schema: Optional[str]
     ) -> int:
         engine = self.conn_service.get_sync_engine(conn)
-        try:
-            schema = schema or _default_schema(conn)
-            qualified_table = qualify_table(engine, schema, table_name)
-            with engine.connect() as connection:
-                return connection.execute(
-                    text(f"SELECT COUNT(*) FROM {qualified_table}")
-                ).scalar() or 0
-        finally:
-            engine.dispose()
+        schema = schema or _default_schema(conn)
+        qualified_table = qualify_table(engine, schema, table_name)
+        with engine.connect() as connection:
+            return connection.execute(
+                text(f"SELECT COUNT(*) FROM {qualified_table}")
+            ).scalar() or 0
