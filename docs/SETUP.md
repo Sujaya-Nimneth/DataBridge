@@ -21,23 +21,42 @@ This is the fastest way to get the entire platform running.
 
 ```bash
 git clone <repository-url>
-cd "recruitment task-EraBiz"
+cd DataBridge
 ```
 
-### Step 2: Start all services
+### Step 2: Provide secrets
+
+`docker-compose.yml` requires two secrets and will fail fast if they are
+missing, because the API refuses to start with placeholder values:
+
+```bash
+export SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+export ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+```
+
+`ENCRYPTION_KEY` protects the stored database credentials. Changing it later
+makes existing connections undecryptable, so keep it safe.
+
+### Step 3: Start all services
 
 ```bash
 docker compose up --build
 ```
 
 This command:
-1. Builds the backend Docker image (Python 3.11 + dependencies)
-2. Builds the frontend Docker image (Node 20 + dependencies)
+1. Builds the backend image (Python 3.11, non-root user)
+2. Builds the frontend image and serves the compiled bundle with nginx
 3. Starts PostgreSQL 16 (application database)
 4. Starts Redis 7 (Celery broker)
 5. Starts the FastAPI backend (port 8000)
 6. Starts the Celery worker
-7. Starts the Vite dev server (port 5173)
+7. Serves the SPA on port 5173
+
+For hot reload while developing, use the dev stack instead:
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
 
 ### Step 3: Verify services
 
@@ -185,7 +204,19 @@ npm run dev
 
 ## Database Migrations
 
-The application auto-creates tables on startup. For production, use Alembic:
+Migrations are the source of truth. With `DEBUG=true` the API still calls
+`create_all` on startup so a fresh development checkout boots without extra
+steps, but production deployments (`DEBUG=false`) rely solely on Alembic and
+never mutate the schema implicitly.
+
+```bash
+cd backend
+
+# Apply all migrations (required before starting the API)
+alembic upgrade head
+```
+
+To create a new revision:
 
 ```bash
 cd backend

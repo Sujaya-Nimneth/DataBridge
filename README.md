@@ -82,10 +82,21 @@
 ### 1. Clone the repository
 ```bash
 git clone <repository-url>
-cd "recruitment task-EraBiz"
+cd DataBridge
 ```
 
-### 2. Start all services with Docker Compose
+### 2. Configure secrets
+The API refuses to start with placeholder secrets, so set real values first:
+```bash
+cat > .env <<'EOF'
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+EOF
+```
+Docker Compose reads these variables from the environment or a `.env` file next
+to `docker-compose.yml`.
+
+### 3. Start all services with Docker Compose
 ```bash
 docker compose up --build
 ```
@@ -99,10 +110,10 @@ This starts 5 services:
 | **PostgreSQL** | localhost:5432 | Application database |
 | **Redis** | localhost:6379 | Celery broker |
 
-### 3. Create an account
+### 4. Create an account
 Navigate to http://localhost:5173 and register a new account.
 
-### 4. Add your first database connection
+### 5. Add your first database connection
 Go to **Connections** → **Add Connection** and enter your database details.
 
 ---
@@ -126,6 +137,9 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your database credentials
 
+# Apply database migrations
+alembic upgrade head
+
 # Start the API server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -139,10 +153,17 @@ celery -A app.workers.celery_app worker --loglevel=info
 cd frontend
 
 # Install dependencies
-npm install
+npm ci
 
 # Start dev server
 npm run dev
+```
+
+### Tests
+
+```bash
+cd backend
+python -m pytest
 ```
 
 ---

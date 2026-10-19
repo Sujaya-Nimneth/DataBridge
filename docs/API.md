@@ -133,6 +133,11 @@ Create a new database connection. Credentials are encrypted before storage.
 
 **Supported `db_type` values:** `postgresql`, `mysql`
 
+When `ssl_enabled` is `true` the driver connects with `sslmode=require`
+(PostgreSQL) or TLS enabled (MySQL). Credentials are encrypted at rest and are
+never returned by the API; `host` and `username` are returned decrypted for
+display.
+
 #### GET `/api/connections/{id}`
 
 Get details of a specific connection.
@@ -143,7 +148,11 @@ Update a connection. All fields are optional. Password can be omitted to keep th
 
 #### DELETE `/api/connections/{id}`
 
-Delete a connection and all associated data.
+Delete a connection.
+
+Returns **409 Conflict** when any transfer job references the connection,
+because deleting it would destroy transfer history. Delete those transfers
+first, or keep the connection.
 
 #### POST `/api/connections/{id}/test`
 
@@ -213,6 +222,11 @@ Get column metadata.
 
 #### GET `/api/discovery/{connection_id}/tables/{table_name}/preview`
 
+> The optional `filter_query` parameter accepts a single SQL `WHERE` expression.
+> Statement separators, comments, DDL/DML keywords and sub-queries are rejected
+> with **400 Bad Request**. Results are ordered by primary key so pagination is
+> stable, and values keep their native JSON types.
+
 Preview data from a table with pagination.
 
 **Query Parameters:**
@@ -227,8 +241,8 @@ Preview data from a table with pagination.
   "columns": ["id", "name", "email"],
   "column_types": ["INTEGER", "VARCHAR(255)", "VARCHAR(255)"],
   "rows": [
-    ["1", "John", "john@example.com"],
-    ["2", "Jane", "jane@example.com"]
+    [1, "John", "john@example.com"],
+    [2, "Jane", "jane@example.com"]
   ],
   "total_rows": 1500,
   "page": 1,
