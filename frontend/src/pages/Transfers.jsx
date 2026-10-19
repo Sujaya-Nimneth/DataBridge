@@ -23,6 +23,7 @@ function Transfers() {
   const [wizardStep, setWizardStep] = useState(1);
   const [showDetail, setShowDetail] = useState(null);
   const [detailLogs, setDetailLogs] = useState([]);
+  const detailId = showDetail?.id ?? null;
   const location = useLocation();
 
   // Wizard form state
@@ -36,8 +37,10 @@ function Transfers() {
     filter_query: '',
     create_target_table: true,
   });
+  const [sourceSchemas, setSourceSchemas] = useState([]);
   const [sourceTables, setSourceTables] = useState([]);
-  const [targetTables, setTargetTables] = useState([]);
+  const [targetSchemas, setTargetSchemas] = useState([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -80,13 +83,27 @@ function Transfers() {
     }
   };
 
-  const loadTables = async (connId, setter) => {
+  const loadSchemas = async (connId, setter) => {
     if (!connId) return;
     try {
-      const res = await discoveryAPI.getTables(connId);
+      const res = await discoveryAPI.getSchemas(connId);
+      setter(res.data);
+    } catch {
+      toast.error('Failed to load schemas');
+    }
+  };
+
+  const loadTables = async (connId, schema, setter) => {
+    if (!connId) return;
+    setTablesLoading(true);
+    try {
+      const res = await discoveryAPI.getTables(connId, schema || undefined);
       setter(res.data);
     } catch {
       toast.error('Failed to load tables');
+      setter([]);
+    } finally {
+      setTablesLoading(false);
     }
   };
 
@@ -117,15 +134,27 @@ function Transfers() {
     }
   };
 
-  const viewDetail = async (transfer) => {
+  const viewDetail = (transfer) => {
     setShowDetail(transfer);
-    try {
-      const res = await transfersAPI.getLogs(transfer.id);
-      setDetailLogs(res.data);
-    } catch {
-      setDetailLogs([]);
-    }
+    setDetailLogs([]);
   };
+
+  // Keep an open detail modal in sync with the running job.
+  const detailIsLive = showDetail?.status === 'running' || showDetail?.status === 'pending';
+  usePolling(
+    async () => {
+      if (!detailId) return null;
+      const [jobRes, logsRes] = await Promise.all([
+        transfersAPI.get(detailId),
+        transfersAPI.getLogs(detailId),
+      ]);
+      setShowDetail(jobRes.data);
+      setDetailLogs(logsRes.data);
+      return jobRes.data;
+    },
+    3000,
+    Boolean(detailId) && detailIsLive
+  );
 
   const cancelTransfer = async (id) => {
     try {
@@ -291,22 +320,56 @@ function Transfers() {
               {wizardStep === 1 && (
                 <div>
                   <div className="form-group">
-                    <label className="form-label">Source Connection</label>
-                    <select className="form-input form-select" value={wizardForm.source_connection_id}
+                    <label className="form-label" htmlFor="wizard-source-connection">Source Connection</label>
+                    <select id="wizard-source-connection" className="form-input form-select" value={wizardForm.source_connection_id}
                       onChange={(e) => {
-                        setWizardForm(prev => ({ ...prev, source_connection_id: e.target.value, source_table: '' }));
-                        loadTables(e.target.value, setSourceTables);
+                        const connId = e.target.value;
+                        setWizardForm(prev => ({
+                          ...prev,
+                          source_connection_id: connId,
+                          source_schema: '',
+                          source_table: '',
+                        }));
+                        setSourceTables([]);
+                        loadSchemas(connId, setSourceSchemas);
                       }}>
                       <option value="">Select a connection</option>
                       {connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.db_type})</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Source Table</label>
-                    <select className="form-input form-select" value={wizardForm.source_table}
+                    <label className="form-label" htmlFor="wizard-source-schema">Source Schema</label>
+                    <select id="wizard-source-schema" className="form-input form-select"
+                      value={wizardForm.source_schema}
+                      disabled={!wizardForm.source_connection_id}
+                      onChange={(e) => {
+                        const schema = e.target.value;
+                        setWizardForm(prev => ({ ...prev, source_schema: schema, source_table: '' }));
+                        loadTables(wizardForm.source_connection_id, schema, setSourceTables);
+                      }}>
+                      <option value="">Default schema</option>
+                      {sourceSchemas.map(schema => (
+                        <option key={schema.name} value={schema.name}>
+                          {schema.name} ({schema.table_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="wizard-source-table">Source Table</label>
+                    <select id="wizard-source-table" className="form-input form-select" value={wizardForm.source_table}
+                      disabled={tablesLoading || sourceTables.length === 0}
                       onChange={(e) => setWizardForm(prev => ({ ...prev, source_table: e.target.value }))}>
-                      <option value="">Select a table</option>
-                      {sourceTables.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                      <option value="">
+                        {tablesLoading ? 'Loading tables…' : sourceTables.length === 0
+                          ? 'Select a schema first'
+                          : 'Select a table'}
+                      </option>
+                      {sourceTables.map(t => (
+                        <option key={`${t.schema_name}.${t.name}`} value={t.name}>
+                          {t.name}{t.type === 'view' ? ' (view)' : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -319,16 +382,33 @@ function Transfers() {
                     <label className="form-label">Target Connection</label>
                     <select className="form-input form-select" value={wizardForm.target_connection_id}
                       onChange={(e) => {
-                        setWizardForm(prev => ({ ...prev, target_connection_id: e.target.value }));
-                        loadTables(e.target.value, setTargetTables);
+                        const connId = e.target.value;
+                        setWizardForm(prev => ({
+                          ...prev,
+                          target_connection_id: connId,
+                          target_schema: '',
+                        }));
+                        loadSchemas(connId, setTargetSchemas);
                       }}>
                       <option value="">Select a connection</option>
                       {connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.db_type})</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Target Table Name</label>
-                    <input className="form-input" value={wizardForm.target_table}
+                    <label className="form-label" htmlFor="wizard-target-schema">Target Schema</label>
+                    <select id="wizard-target-schema" className="form-input form-select"
+                      value={wizardForm.target_schema}
+                      disabled={!wizardForm.target_connection_id}
+                      onChange={(e) => setWizardForm(prev => ({ ...prev, target_schema: e.target.value }))}>
+                      <option value="">Default schema</option>
+                      {targetSchemas.map(schema => (
+                        <option key={schema.name} value={schema.name}>{schema.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="wizard-target-table">Target Table Name</label>
+                    <input id="wizard-target-table" className="form-input" value={wizardForm.target_table}
                       placeholder={wizardForm.source_table || 'Enter table name'}
                       onChange={(e) => setWizardForm(prev => ({ ...prev, target_table: e.target.value }))} />
                     <div className="text-xs text-muted" style={{ marginTop: '4px' }}>
