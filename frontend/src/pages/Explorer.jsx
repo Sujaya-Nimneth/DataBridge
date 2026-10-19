@@ -13,6 +13,7 @@ import {
   HiOutlineTable,
   HiOutlineKey,
   HiOutlineEye,
+  HiOutlineSearch,
 } from 'react-icons/hi';
 
 function Explorer() {
@@ -116,7 +117,7 @@ function Explorer() {
       {connections.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
+            <div className="empty-state-icon"><HiOutlineSearch aria-hidden="true" /></div>
             <h3>No connections available</h3>
             <p>Create a database connection first to start exploring data.</p>
             <button className="btn btn-primary" onClick={() => navigate('/connections')}>
@@ -131,16 +132,17 @@ function Explorer() {
             <div style={{ padding: '8px 4px', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Database Objects
             </div>
-            <div className="tree-view">
+            <div className="tree-view" role="tree" aria-label="Database objects">
               {connections.map((conn) => {
                 const connKey = `conn-${conn.id}`;
                 const isExpanded = expanded[connKey];
                 const schemas = treeData[`schemas-${conn.id}`] || [];
 
                 return (
-                  <div key={conn.id} className="tree-node">
-                    <div
-                      className="tree-node-content"
+                  <div key={conn.id} className="tree-node" role="treeitem" aria-expanded={!!isExpanded}>
+                    <button
+                      type="button"
+                      className="tree-node-button"
                       onClick={() => toggleNode(connKey, 'connection', conn)}
                     >
                       <span className="tree-node-icon">
@@ -150,7 +152,7 @@ function Explorer() {
                         <HiOutlineDatabase />
                       </span>
                       <span className="tree-node-label">{conn.name}</span>
-                    </div>
+                    </button>
 
                     {isExpanded && (
                       <div className="tree-children">
@@ -160,9 +162,10 @@ function Explorer() {
                           const tables = treeData[`tables-${conn.id}-${schema.name}`] || [];
 
                           return (
-                            <div key={schema.name} className="tree-node">
-                              <div
-                                className="tree-node-content"
+                            <div key={schema.name} className="tree-node" role="treeitem" aria-expanded={!!isSchemaExpanded}>
+                              <button
+                                type="button"
+                                className="tree-node-button"
                                 onClick={() => toggleNode(schemaKey, 'schema', { connId: conn.id, schema: schema.name })}
                               >
                                 <span className="tree-node-icon">
@@ -171,7 +174,7 @@ function Explorer() {
                                 <span className="tree-node-label">
                                   {schema.name} <span className="text-muted text-xs">({schema.table_count})</span>
                                 </span>
-                              </div>
+                              </button>
 
                               {isSchemaExpanded && (
                                 <div className="tree-children">
@@ -182,15 +185,17 @@ function Explorer() {
 
                                     return (
                                       <div key={table.name} className="tree-node">
-                                        <div
-                                          className={`tree-node-content ${isSelected ? 'selected' : ''}`}
+                                        <button
+                                          type="button"
+                                          className={`tree-node-button ${isSelected ? 'selected' : ''}`}
+                                          aria-current={isSelected ? 'true' : undefined}
                                           onClick={() => selectTable(conn.id, schema.name, table.name, conn.name)}
                                         >
                                           <span className="tree-node-icon" style={{ color: table.type === 'view' ? 'var(--color-info)' : 'var(--color-text-tertiary)' }}>
                                             {table.type === 'view' ? <HiOutlineEye /> : <HiOutlineTable />}
                                           </span>
                                           <span className="tree-node-label">{table.name}</span>
-                                        </div>
+                                        </button>
                                       </div>
                                     );
                                   })}
@@ -237,14 +242,24 @@ function Explorer() {
                     </button>
                   </div>
 
-                  <div className="tabs">
+                  <div className="tabs" role="tablist" aria-label="Table views">
                     <button
+                      type="button"
+                      role="tab"
+                      id="tab-columns"
+                      aria-selected={activeTab === 'columns'}
+                      aria-controls="panel-columns"
                       className={`tab ${activeTab === 'columns' ? 'active' : ''}`}
                       onClick={() => setActiveTab('columns')}
                     >
                       Columns
                     </button>
                     <button
+                      type="button"
+                      role="tab"
+                      id="tab-preview"
+                      aria-selected={activeTab === 'preview'}
+                      aria-controls="panel-preview"
                       className={`tab ${activeTab === 'preview' ? 'active' : ''}`}
                       onClick={loadPreview}
                     >
@@ -253,7 +268,12 @@ function Explorer() {
                   </div>
 
                   {activeTab === 'columns' && (
-                    <div className="data-table-wrapper">
+                    <div
+                      className="data-table-wrapper"
+                      role="tabpanel"
+                      id="panel-columns"
+                      aria-labelledby="tab-columns"
+                    >
                       <table className="data-table">
                         <thead>
                           <tr>
@@ -320,7 +340,7 @@ function Explorer() {
             ) : (
               <div className="card">
                 <div className="empty-state">
-                  <div className="empty-state-icon">🔍</div>
+                  <div className="empty-state-icon"><HiOutlineSearch aria-hidden="true" /></div>
                   <h3>Select a table</h3>
                   <p>Expand a connection in the tree to browse schemas, tables, and columns.</p>
                 </div>

@@ -9,6 +9,9 @@ import {
   HiOutlineRefresh,
   HiOutlineChartBar,
   HiOutlineClock,
+  HiOutlineDatabase,
+  HiOutlineClipboardList,
+  HiOutlineCheckCircle,
 } from 'react-icons/hi';
 
 function Monitoring() {
@@ -79,13 +82,25 @@ function Monitoring() {
         </button>
       </div>
 
-      <div className="tabs">
-        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}>Overview</button>
-        <button className={`tab ${activeTab === 'connections' ? 'active' : ''}`}
-          onClick={() => setActiveTab('connections')}>Connections</button>
-        <button className={`tab ${activeTab === 'activity' ? 'active' : ''}`}
-          onClick={() => setActiveTab('activity')}>Activity Log</button>
+      <div className="tabs" role="tablist" aria-label="Monitoring sections">
+        {[
+          { id: 'overview', label: 'Overview' },
+          { id: 'connections', label: 'Connections' },
+          { id: 'activity', label: 'Activity Log' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'overview' && (
@@ -98,7 +113,7 @@ function Monitoring() {
               <div className="stat-label">Total Transfers</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon success">✓</div>
+              <div className="stat-card-icon success"><HiOutlineCheckCircle aria-hidden="true" /></div>
               <div className="stat-value">{stats?.success_rate || 0}%</div>
               <div className="stat-label">Success Rate</div>
             </div>
@@ -112,7 +127,7 @@ function Monitoring() {
               <div className="stat-label">Avg Duration</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon warning">📊</div>
+              <div className="stat-card-icon warning"><HiOutlineChartBar aria-hidden="true" /></div>
               <div className="stat-value">{stats?.total_rows_transferred?.toLocaleString() || 0}</div>
               <div className="stat-label">Total Rows Moved</div>
             </div>
@@ -198,7 +213,7 @@ function Monitoring() {
           </div>
           {connStatuses.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon">🔌</div>
+              <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
               <h3>No connections configured</h3>
             </div>
           ) : (
@@ -246,7 +261,7 @@ function Monitoring() {
           </div>
           {activity.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon">📋</div>
+              <div className="empty-state-icon"><HiOutlineClipboardList aria-hidden="true" /></div>
               <h3>No activity recorded</h3>
             </div>
           ) : (

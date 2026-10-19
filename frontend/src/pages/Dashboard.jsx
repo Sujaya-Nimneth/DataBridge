@@ -6,12 +6,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
 import {
+  HiOutlineClipboardList,
   HiOutlineDatabase,
   HiOutlineSwitchHorizontal,
   HiOutlineCheckCircle,
   HiOutlineExclamationCircle,
   HiOutlineTrendingUp,
-  HiOutlineClipboardList,
 } from 'react-icons/hi';
 
 function Dashboard() {
@@ -19,6 +19,7 @@ function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [connStatuses, setConnStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +27,8 @@ function Dashboard() {
   }, []);
 
   const loadDashboard = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const [statsRes, activityRes, connRes] = await Promise.all([
         monitoringAPI.getDashboard(),
@@ -36,7 +39,10 @@ function Dashboard() {
       setActivity(activityRes.data);
       setConnStatuses(connRes.data);
     } catch (err) {
-      console.error('Failed to load dashboard:', err);
+      // Surface the failure instead of silently rendering zeros.
+      setLoadError(
+        err.response?.data?.message || 'Could not load dashboard data.'
+      );
     } finally {
       setLoading(false);
     }
@@ -95,15 +101,28 @@ function Dashboard() {
         <p>Overview of your data connectivity platform</p>
       </div>
 
+      {loadError && (
+        <div className="alert alert-danger" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={loadDashboard}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="stats-grid">
-        <div className="stat-card" onClick={() => navigate('/connections')} style={{ cursor: 'pointer' }}>
+        <button
+          type="button"
+          className="stat-card stat-card-action"
+          onClick={() => navigate('/connections')}
+        >
           <div className="stat-card-icon primary">
             <HiOutlineDatabase />
           </div>
           <div className="stat-value">{stats?.total_connections || 0}</div>
           <div className="stat-label">Total Connections</div>
-        </div>
+        </button>
 
         <div className="stat-card">
           <div className="stat-card-icon success">
@@ -113,13 +132,17 @@ function Dashboard() {
           <div className="stat-label">Active Connections</div>
         </div>
 
-        <div className="stat-card" onClick={() => navigate('/transfers')} style={{ cursor: 'pointer' }}>
+        <button
+          type="button"
+          className="stat-card stat-card-action"
+          onClick={() => navigate('/transfers')}
+        >
           <div className="stat-card-icon info">
             <HiOutlineSwitchHorizontal />
           </div>
           <div className="stat-value">{stats?.running_transfers || 0}</div>
           <div className="stat-label">Running Transfers</div>
-        </div>
+        </button>
 
         <div className="stat-card">
           <div className="stat-card-icon warning">
@@ -158,7 +181,7 @@ function Dashboard() {
           </div>
           {activity.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 20px' }}>
-              <div className="empty-state-icon">📋</div>
+              <div className="empty-state-icon"><HiOutlineClipboardList aria-hidden="true" /></div>
               <h3>No activity yet</h3>
               <p>Start by creating a connection and running your first transfer</p>
             </div>
@@ -199,7 +222,7 @@ function Dashboard() {
           </div>
           {connStatuses.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 20px' }}>
-              <div className="empty-state-icon">🔌</div>
+              <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
               <h3>No connections</h3>
               <p>Add a database connection to get started</p>
               <button className="btn btn-primary" onClick={() => navigate('/connections')}>

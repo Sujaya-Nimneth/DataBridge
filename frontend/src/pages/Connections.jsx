@@ -12,6 +12,7 @@ import {
   HiOutlineTrash,
   HiOutlineStatusOnline,
   HiOutlineRefresh,
+  HiOutlineDatabase,
 } from 'react-icons/hi';
 
 function Connections() {
@@ -132,7 +133,7 @@ function Connections() {
       {connections.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">🔌</div>
+            <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
             <h3>No connections configured</h3>
             <p>Add your first database connection to start exploring and transferring data.</p>
             <button className="btn btn-primary" onClick={openCreate}>

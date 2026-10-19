@@ -1867,3 +1867,66 @@ a:hover {
     gap: 4px;
   }
 }
+
+/* Interactive stat card (rendered as a button for keyboard users) */
+.stat-card-action {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stat-card-action:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-2px);
+}
+
+/* Tree rows are buttons so they are reachable with Tab/Enter. */
+.tree-node-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tree-node-button:hover {
+  background: var(--color-bg-glass);
+  color: var(--color-text-primary);
+}
+
+.tree-node-button.selected {
+  background: var(--color-primary-glow);
+  color: var(--color-primary-light);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+/* Inline alert used for surfaced load failures */
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.alert-danger {
+  background: var(--color-danger-bg);
+  border-color: rgba(244, 63, 94, 0.35);
+  color: var(--color-danger-light);
+}

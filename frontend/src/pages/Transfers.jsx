@@ -14,6 +14,7 @@ import {
   HiOutlineStop,
   HiOutlineEye,
   HiOutlineArrowRight,
+  HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
 function Transfers() {
@@ -213,7 +214,7 @@ function Transfers() {
 
         {transfers.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">🔄</div>
+            <div className="empty-state-icon"><HiOutlineSwitchHorizontal aria-hidden="true" /></div>
             <h3>No transfers yet</h3>
             <p>Create your first data transfer to move data between databases.</p>
           </div>
