@@ -31,6 +31,8 @@ httpx==0.28.1
 # Testing
 pytest==8.3.4
 pytest-asyncio==0.25.0
+aiosqlite==0.20.0
+greenlet==3.1.1
 
 # API Documentation
 pyyaml==6.0.2
