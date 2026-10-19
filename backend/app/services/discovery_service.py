@@ -3,18 +3,62 @@ Discovery service: inspects remote database structures using SQLAlchemy reflecti
 Supports schemas, tables, views, columns, and data preview.
 """
 
-from typing import Optional
+import datetime as dt
+import decimal
+import uuid as uuid_module
+from typing import Any, Optional
 from uuid import UUID
 
-from sqlalchemy import inspect, text, create_engine
+from anyio import to_thread
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.connection import DatabaseConnection
-from app.enums import DatabaseType
-from app.schemas.discovery import SchemaInfo, TableInfo, ColumnInfo, DataPreview
-from app.services.connection_service import ConnectionService
 from app.config import settings
+from app.enums import DatabaseType
+from app.models.connection import DatabaseConnection
+from app.schemas.discovery import ColumnInfo, DataPreview, SchemaInfo, TableInfo
+from app.services.connection_service import ConnectionService
+from app.sql_utils import UnsafeFilterError, qualify_table, validate_filter_query
 from fastapi import HTTPException, status
+
+SYSTEM_SCHEMAS = {
+    "information_schema",
+    "pg_catalog",
+    "pg_toast",
+    "mysql",
+    "performance_schema",
+    "sys",
+}
+
+
+def _default_schema(conn: DatabaseConnection) -> str:
+    """Return the schema to inspect when the caller did not specify one."""
+    if conn.db_type == DatabaseType.POSTGRESQL:
+        return "public"
+    return conn.database_name
+
+
+def _json_safe(value: Any) -> Any:
+    """
+    Convert a database value into something JSON can represent.
+
+    Values keep their native type where JSON supports it (numbers, booleans)
+    instead of being flattened to strings, which previously made every numeric
+    and boolean column render as text in the explorer.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, decimal.Decimal):
+        return float(value)
+    if isinstance(value, (dt.datetime, dt.date, dt.time)):
+        return value.isoformat()
+    if isinstance(value, dt.timedelta):
+        return value.total_seconds()
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value).hex()
+    if isinstance(value, uuid_module.UUID):
+        return str(value)
+    return str(value)
 
 
 class DiscoveryService:
@@ -29,22 +73,19 @@ class DiscoveryService:
     ) -> list[SchemaInfo]:
         """List all schemas in the connected database."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
-        engine = self.conn_service.get_sync_engine(conn)
+        return await to_thread.run_sync(self._get_schemas_sync, conn)
 
+    def _get_schemas_sync(self, conn: DatabaseConnection) -> list[SchemaInfo]:
+        engine = self.conn_service.get_sync_engine(conn)
         try:
             inspector = inspect(engine)
-            schema_names = inspector.get_schema_names()
-
             schemas = []
-            for name in schema_names:
-                # Skip system schemas
-                if name in ("information_schema", "pg_catalog", "pg_toast",
-                            "mysql", "performance_schema", "sys"):
+            for name in inspector.get_schema_names():
+                if name in SYSTEM_SCHEMAS:
                     continue
                 table_count = len(inspector.get_table_names(schema=name))
                 schemas.append(SchemaInfo(name=name, table_count=table_count))
-
-            return schemas
+            return sorted(schemas, key=lambda s: s.name)
         finally:
             engine.dispose()
 
@@ -53,38 +94,29 @@ class DiscoveryService:
     ) -> list[TableInfo]:
         """List all tables and views in a schema."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
-        engine = self.conn_service.get_sync_engine(conn)
+        return await to_thread.run_sync(self._get_tables_sync, conn, schema)
 
+    def _get_tables_sync(
+        self, conn: DatabaseConnection, schema: Optional[str]
+    ) -> list[TableInfo]:
+        engine = self.conn_service.get_sync_engine(conn)
         try:
             inspector = inspect(engine)
+            schema = schema or _default_schema(conn)
 
-            # Default schema
-            if not schema:
-                if conn.db_type == DatabaseType.POSTGRESQL:
-                    schema = "public"
-                else:
-                    schema = conn.database_name
+            tables = [
+                TableInfo(name=name, schema_name=schema, type="table")
+                for name in inspector.get_table_names(schema=schema)
+            ]
 
-            tables = []
-
-            # Get tables
-            for table_name in inspector.get_table_names(schema=schema):
-                tables.append(TableInfo(
-                    name=table_name,
-                    schema_name=schema,
-                    type="table",
-                ))
-
-            # Get views
             try:
-                for view_name in inspector.get_view_names(schema=schema):
-                    tables.append(TableInfo(
-                        name=view_name,
-                        schema_name=schema,
-                        type="view",
-                    ))
+                tables.extend(
+                    TableInfo(name=name, schema_name=schema, type="view")
+                    for name in inspector.get_view_names(schema=schema)
+                )
             except Exception:
-                pass  # Some databases may not support view listing
+                # Some engines/drivers cannot enumerate views; tables still work.
+                pass
 
             return sorted(tables, key=lambda t: t.name)
         finally:
@@ -99,54 +131,54 @@ class DiscoveryService:
     ) -> list[ColumnInfo]:
         """Get column metadata for a table."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
-        engine = self.conn_service.get_sync_engine(conn)
-
         try:
-            inspector = inspect(engine)
-
-            if not schema:
-                schema = "public" if conn.db_type == DatabaseType.POSTGRESQL else conn.database_name
-
-            # Get primary keys
-            try:
-                pk_constraint = inspector.get_pk_constraint(table_name, schema=schema)
-                pk_columns = set(pk_constraint.get("constrained_columns", []))
-            except Exception:
-                pk_columns = set()
-
-            # Get foreign keys
-            try:
-                fk_info = inspector.get_foreign_keys(table_name, schema=schema)
-                fk_columns = set()
-                for fk in fk_info:
-                    fk_columns.update(fk.get("constrained_columns", []))
-            except Exception:
-                fk_columns = set()
-
-            columns = []
-            for col in inspector.get_columns(table_name, schema=schema):
-                col_type = str(col["type"])
-                max_length = None
-                if hasattr(col["type"], "length") and col["type"].length:
-                    max_length = col["type"].length
-
-                columns.append(ColumnInfo(
-                    name=col["name"],
-                    type=col_type,
-                    nullable=col.get("nullable", True),
-                    default=str(col["default"]) if col.get("default") else None,
-                    is_primary_key=col["name"] in pk_columns,
-                    is_foreign_key=col["name"] in fk_columns,
-                    max_length=max_length,
-                    comment=col.get("comment"),
-                ))
-
-            return columns
+            return await to_thread.run_sync(
+                self._get_columns_sync, conn, table_name, schema
+            )
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to inspect table: {str(e)[:200]}",
             )
+
+    def _get_columns_sync(
+        self, conn: DatabaseConnection, table_name: str, schema: Optional[str]
+    ) -> list[ColumnInfo]:
+        engine = self.conn_service.get_sync_engine(conn)
+        try:
+            inspector = inspect(engine)
+            schema = schema or _default_schema(conn)
+
+            try:
+                pk_constraint = inspector.get_pk_constraint(table_name, schema=schema)
+                pk_columns = set(pk_constraint.get("constrained_columns") or [])
+            except Exception:
+                pk_columns = set()
+
+            try:
+                fk_columns = set()
+                for fk in inspector.get_foreign_keys(table_name, schema=schema):
+                    fk_columns.update(fk.get("constrained_columns") or [])
+            except Exception:
+                fk_columns = set()
+
+            columns = []
+            for col in inspector.get_columns(table_name, schema=schema):
+                columns.append(
+                    ColumnInfo(
+                        name=col["name"],
+                        type=str(col["type"]),
+                        nullable=col.get("nullable", True),
+                        default=str(col["default"]) if col.get("default") else None,
+                        is_primary_key=col["name"] in pk_columns,
+                        is_foreign_key=col["name"] in fk_columns,
+                        max_length=getattr(col["type"], "length", None),
+                        comment=col.get("comment"),
+                    )
+                )
+            return columns
         finally:
             engine.dispose()
 
@@ -162,57 +194,21 @@ class DiscoveryService:
     ) -> DataPreview:
         """Preview data from a table with pagination and optional filtering."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
-        engine = self.conn_service.get_sync_engine(conn)
-
-        if page_size > settings.TRANSFER_MAX_PREVIEW_ROWS:
-            page_size = settings.TRANSFER_MAX_PREVIEW_ROWS
 
         try:
-            if not schema:
-                schema = "public" if conn.db_type == DatabaseType.POSTGRESQL else conn.database_name
+            safe_filter = validate_filter_query(filter_query)
+        except UnsafeFilterError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            )
 
-            # Build qualified table name
-            qualified_table = f'"{schema}"."{table_name}"'
-            if conn.db_type == DatabaseType.MYSQL:
-                qualified_table = f"`{schema}`.`{table_name}`"
+        page_size = min(page_size, settings.TRANSFER_MAX_PREVIEW_ROWS)
 
-            with engine.connect() as connection:
-                # Get total count
-                count_query = f"SELECT COUNT(*) FROM {qualified_table}"
-                if filter_query:
-                    count_query += f" WHERE {filter_query}"
-                total_rows = connection.execute(text(count_query)).scalar()
-
-                # Get column info
-                inspector = inspect(engine)
-                columns_info = inspector.get_columns(table_name, schema=schema)
-                column_names = [c["name"] for c in columns_info]
-                column_types = [str(c["type"]) for c in columns_info]
-
-                # Get paginated data
-                offset = (page - 1) * page_size
-                data_query = f"SELECT * FROM {qualified_table}"
-                if filter_query:
-                    data_query += f" WHERE {filter_query}"
-                data_query += f" LIMIT {page_size} OFFSET {offset}"
-
-                result = connection.execute(text(data_query))
-                rows = []
-                for row in result:
-                    rows.append([
-                        str(v) if v is not None else None
-                        for v in row
-                    ])
-
-                return DataPreview(
-                    columns=column_names,
-                    column_types=column_types,
-                    rows=rows,
-                    total_rows=total_rows,
-                    page=page,
-                    page_size=page_size,
-                    has_more=(offset + page_size) < total_rows,
-                )
+        try:
+            return await to_thread.run_sync(
+                self._preview_sync,
+                conn, table_name, schema, page, page_size, safe_filter,
+            )
         except HTTPException:
             raise
         except Exception as e:
@@ -220,8 +216,79 @@ class DiscoveryService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to preview data: {str(e)[:200]}",
             )
+
+    def _preview_sync(
+        self,
+        conn: DatabaseConnection,
+        table_name: str,
+        schema: Optional[str],
+        page: int,
+        page_size: int,
+        filter_query: Optional[str],
+    ) -> DataPreview:
+        engine = self.conn_service.get_sync_engine(conn)
+        try:
+            schema = schema or _default_schema(conn)
+            qualified_table = qualify_table(engine, schema, table_name)
+            where_clause = f" WHERE {filter_query}" if filter_query else ""
+
+            inspector = inspect(engine)
+            columns_info = inspector.get_columns(table_name, schema=schema)
+            column_names = [c["name"] for c in columns_info]
+            column_types = [str(c["type"]) for c in columns_info]
+            order_column = self._order_column(
+                inspector, table_name, schema, columns_info
+            )
+
+            offset = (page - 1) * page_size
+
+            with engine.connect() as connection:
+                total_rows = connection.execute(
+                    text(f"SELECT COUNT(*) FROM {qualified_table}{where_clause}")
+                ).scalar() or 0
+
+                # Ordering is required for stable pagination: without it the
+                # database may return rows in a different order per query, so
+                # pages would duplicate or skip records.
+                order_clause = f" ORDER BY {order_column}" if order_column else ""
+                data_query = (
+                    f"SELECT * FROM {qualified_table}{where_clause}"
+                    f"{order_clause} LIMIT :limit OFFSET :offset"
+                )
+                result = connection.execute(
+                    text(data_query), {"limit": page_size, "offset": offset}
+                )
+                rows = [[_json_safe(v) for v in row] for row in result]
+
+            return DataPreview(
+                columns=column_names,
+                column_types=column_types,
+                rows=rows,
+                total_rows=total_rows,
+                page=page,
+                page_size=page_size,
+                has_more=(offset + page_size) < total_rows,
+            )
         finally:
             engine.dispose()
+
+    @staticmethod
+    def _order_column(
+        inspector, table_name: str, schema: str, columns_info: list[dict]
+    ) -> Optional[str]:
+        """Prefer the primary key, then fall back to the first column."""
+        try:
+            pk = inspector.get_pk_constraint(table_name, schema=schema)
+            pk_columns = pk.get("constrained_columns") or []
+        except Exception:
+            pk_columns = []
+
+        preparer = inspector.dialect.identifier_preparer
+        if pk_columns:
+            return ", ".join(preparer.quote(c) for c in pk_columns)
+        if columns_info:
+            return preparer.quote(columns_info[0]["name"])
+        return None
 
     async def get_row_count(
         self,
@@ -232,18 +299,20 @@ class DiscoveryService:
     ) -> int:
         """Get the row count for a table."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
+        return await to_thread.run_sync(
+            self._get_row_count_sync, conn, table_name, schema
+        )
+
+    def _get_row_count_sync(
+        self, conn: DatabaseConnection, table_name: str, schema: Optional[str]
+    ) -> int:
         engine = self.conn_service.get_sync_engine(conn)
-
         try:
-            if not schema:
-                schema = "public" if conn.db_type == DatabaseType.POSTGRESQL else conn.database_name
-
-            qualified_table = f'"{schema}"."{table_name}"'
-            if conn.db_type == DatabaseType.MYSQL:
-                qualified_table = f"`{schema}`.`{table_name}`"
-
+            schema = schema or _default_schema(conn)
+            qualified_table = qualify_table(engine, schema, table_name)
             with engine.connect() as connection:
-                result = connection.execute(text(f"SELECT COUNT(*) FROM {qualified_table}"))
-                return result.scalar()
+                return connection.execute(
+                    text(f"SELECT COUNT(*) FROM {qualified_table}")
+                ).scalar() or 0
         finally:
             engine.dispose()

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.transfer import TransferJob, TransferLog
 from app.enums import LogLevel, TransferStatus
+from app.sql_utils import UnsafeFilterError, validate_filter_query
 from app.models.connection import DatabaseConnection
 from app.schemas.transfer import TransferCreate, TransferResponse, TransferLogResponse, TransferProgress
 from app.services.connection_service import ConnectionService
@@ -31,6 +32,13 @@ class TransferService:
     ) -> TransferResponse:
         """Create and optionally start a transfer job."""
         # Validate source and target connections exist and belong to user
+        try:
+            filter_query = validate_filter_query(data.filter_query)
+        except UnsafeFilterError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            )
+
         source = await self.conn_service.get_connection_model(
             data.source_connection_id, user_id
         )
@@ -48,7 +56,7 @@ class TransferService:
             target_schema=data.target_schema,
             target_table=data.target_table,
             column_mappings=data.column_mappings,
-            filter_query=data.filter_query,
+            filter_query=filter_query,
             create_target_table=data.create_target_table,
             status=TransferStatus.PENDING,
         )
