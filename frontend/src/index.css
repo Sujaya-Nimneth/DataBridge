@@ -324,7 +324,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 18px;
   color: #09090b;
   flex-shrink: 0;
@@ -1480,7 +1480,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 26px;
   color: #09090b;
   margin: 0 auto 20px;

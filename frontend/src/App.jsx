@@ -3,17 +3,30 @@
  * Handles routing, authentication guard, and layout.
  */
 
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 import Sidebar from './components/Sidebar';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Connections from './pages/Connections';
-import Explorer from './pages/Explorer';
-import Transfers from './pages/Transfers';
-import Monitoring from './pages/Monitoring';
+
+// Route-level splitting keeps the initial bundle small; each page is fetched
+// the first time the user navigates to it.
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Connections = lazy(() => import('./pages/Connections'));
+const Explorer = lazy(() => import('./pages/Explorer'));
+const Transfers = lazy(() => import('./pages/Transfers'));
+const Monitoring = lazy(() => import('./pages/Monitoring'));
+
+function PageFallback() {
+  return (
+    <div className="loading-overlay" role="status" aria-live="polite">
+      <div className="spinner spinner-lg" aria-hidden="true"></div>
+      <span>Loading…</span>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -49,7 +62,8 @@ function AppRoutes() {
   const { user } = useAuth();
 
   return (
-    <Routes>
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
       <Route
         path="/login"
         element={user ? <Navigate to="/" replace /> : <Login />}
@@ -104,8 +118,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
