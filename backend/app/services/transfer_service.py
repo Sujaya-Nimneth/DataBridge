@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.transfer import TransferJob, TransferLog, TransferStatus
+from app.models.transfer import TransferJob, TransferLog
+from app.enums import LogLevel, TransferStatus
 from app.models.connection import DatabaseConnection
 from app.schemas.transfer import TransferCreate, TransferResponse, TransferLogResponse, TransferProgress
 from app.services.connection_service import ConnectionService
@@ -58,7 +59,7 @@ class TransferService:
         # Add initial log entry
         log = TransferLog(
             transfer_job_id=job.id,
-            level="info",
+            level=LogLevel.INFO,
             message=f"Transfer job created: {source.name} → {target.name}",
         )
         self.db.add(log)
@@ -76,7 +77,7 @@ class TransferService:
             # If Celery is not available, mark as pending
             log = TransferLog(
                 transfer_job_id=job.id,
-                level="warning",
+                level=LogLevel.WARNING,
                 message=f"Background worker unavailable, job queued: {str(e)[:200]}",
             )
             self.db.add(log)
@@ -154,7 +155,7 @@ class TransferService:
 
         log = TransferLog(
             transfer_job_id=job.id,
-            level="warning",
+            level=LogLevel.WARNING,
             message="Transfer cancelled by user",
         )
         self.db.add(log)

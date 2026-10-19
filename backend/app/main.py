@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifecycle: startup and shutdown events."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    await init_db()
-    logger.info("Database tables initialized")
+    if settings.DEBUG:
+        await init_db()
+        logger.info("Database tables initialized")
     yield
     await close_db()
     logger.info("Application shutdown complete")

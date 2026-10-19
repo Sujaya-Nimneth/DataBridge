@@ -4,29 +4,13 @@ Transfer job and transfer log models for tracking data movement operations.
 
 import uuid
 from datetime import datetime, timezone
-import enum
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-
-
-class TransferStatus(str, enum.Enum):
-    """Transfer job status."""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class LogLevel(str, enum.Enum):
-    """Log entry severity level."""
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
+from app.enums import LogLevel, TransferStatus, enum_column
 
 
 class TransferJob(Base):
@@ -36,6 +20,10 @@ class TransferJob(Base):
     """
 
     __tablename__ = "transfer_jobs"
+    __table_args__ = (
+        Index("ix_transfer_jobs_user_created", "user_id", "created_at"),
+        Index("ix_transfer_jobs_user_status", "user_id", "status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -69,7 +57,8 @@ class TransferJob(Base):
 
     # Execution status
     status: Mapped[TransferStatus] = mapped_column(
-        SAEnum(TransferStatus), default=TransferStatus.PENDING
+        enum_column(TransferStatus, "transfer_status"),
+        default=TransferStatus.PENDING,
     )
     total_rows: Mapped[int | None] = mapped_column(Integer, nullable=True)
     transferred_rows: Mapped[int] = mapped_column(Integer, default=0)
@@ -132,7 +121,7 @@ class TransferLog(Base):
         index=True,
     )
     level: Mapped[LogLevel] = mapped_column(
-        SAEnum(LogLevel), default=LogLevel.INFO
+        enum_column(LogLevel, "log_level"), default=LogLevel.INFO
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(

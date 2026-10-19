@@ -5,26 +5,13 @@ Credentials are encrypted at rest using Fernet symmetric encryption.
 
 import uuid
 from datetime import datetime, timezone
-import enum
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-
-
-class DatabaseType(str, enum.Enum):
-    """Supported database types."""
-    POSTGRESQL = "postgresql"
-    MYSQL = "mysql"
-
-
-class ConnectionStatus(str, enum.Enum):
-    """Connection test status."""
-    SUCCESS = "success"
-    FAILED = "failed"
-    UNKNOWN = "unknown"
+from app.enums import ConnectionStatus, DatabaseType, enum_column
 
 
 class DatabaseConnection(Base):
@@ -34,6 +21,7 @@ class DatabaseConnection(Base):
     """
 
     __tablename__ = "database_connections"
+    __table_args__ = (Index("ix_database_connections_user_id", "user_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -43,7 +31,7 @@ class DatabaseConnection(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     db_type: Mapped[DatabaseType] = mapped_column(
-        SAEnum(DatabaseType), nullable=False
+        enum_column(DatabaseType, "database_type"), nullable=False
     )
     host: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted
     port: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -58,7 +46,8 @@ class DatabaseConnection(Base):
         DateTime(timezone=True), nullable=True
     )
     last_test_status: Mapped[ConnectionStatus] = mapped_column(
-        SAEnum(ConnectionStatus), default=ConnectionStatus.UNKNOWN
+        enum_column(ConnectionStatus, "connection_status"),
+        default=ConnectionStatus.UNKNOWN,
     )
     last_test_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 

@@ -48,7 +48,12 @@ async def get_db():
 
 
 async def init_db():
-    """Create all tables. Used for development/testing."""
+    """
+    Create tables when migrations have not been run.
+
+    Production deployments must use ``alembic upgrade head``; this fallback only
+    exists so a fresh development checkout can boot without extra steps.
+    """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

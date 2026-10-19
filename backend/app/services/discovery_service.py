@@ -9,7 +9,8 @@ from uuid import UUID
 from sqlalchemy import inspect, text, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.connection import DatabaseConnection, DatabaseType
+from app.models.connection import DatabaseConnection
+from app.enums import DatabaseType
 from app.schemas.discovery import SchemaInfo, TableInfo, ColumnInfo, DataPreview
 from app.services.connection_service import ConnectionService
 from app.config import settings

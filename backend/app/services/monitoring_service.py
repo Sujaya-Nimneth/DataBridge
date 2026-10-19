@@ -9,8 +9,9 @@ from uuid import UUID
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.connection import DatabaseConnection, ConnectionStatus
-from app.models.transfer import TransferJob, TransferStatus, TransferLog
+from app.models.connection import DatabaseConnection
+from app.models.transfer import TransferJob, TransferLog
+from app.enums import ConnectionStatus, TransferStatus
 
 
 class MonitoringService:

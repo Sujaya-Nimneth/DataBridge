@@ -8,10 +8,14 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import create_engine, text, select
+from sqlalchemy import create_engine, text, select, func, or_
+from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.pool import NullPool
 
-from app.models.connection import DatabaseConnection, DatabaseType, ConnectionStatus
+from app.models.connection import DatabaseConnection
+from app.models.transfer import TransferJob
+from app.enums import ConnectionStatus, DatabaseType
 from app.schemas.connection import ConnectionCreate, ConnectionUpdate, ConnectionResponse, ConnectionTest
 from app.security import encrypt_value, decrypt_value
 from app.config import settings
@@ -24,18 +28,41 @@ class ConnectionService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _build_connection_url(self, conn: DatabaseConnection, sync: bool = True) -> str:
-        """Build a database connection URL from decrypted credentials."""
-        host = decrypt_value(conn.host)
-        username = decrypt_value(conn.username)
-        password = decrypt_value(conn.password)
+    def build_url(self, conn: DatabaseConnection, sync: bool = True) -> URL:
+        """
+        Build a database URL from decrypted credentials.
 
+        Uses ``URL.create`` so passwords containing ``@ : / #`` are escaped
+        correctly instead of silently corrupting the connection string.
+        """
         if conn.db_type == DatabaseType.POSTGRESQL:
             driver = "postgresql+psycopg2" if sync else "postgresql+asyncpg"
         else:
             driver = "mysql+pymysql" if sync else "mysql+aiomysql"
 
-        return f"{driver}://{username}:{password}@{host}:{conn.port}/{conn.database_name}"
+        return URL.create(
+            drivername=driver,
+            username=decrypt_value(conn.username),
+            password=decrypt_value(conn.password),
+            host=decrypt_value(conn.host),
+            port=conn.port,
+            database=conn.database_name,
+        )
+
+    @staticmethod
+    def connect_args(conn: DatabaseConnection, timeout: int = 10) -> dict:
+        """Driver-specific connection arguments, including SSL when enabled."""
+        if conn.db_type == DatabaseType.POSTGRESQL:
+            args = {"connect_timeout": timeout}
+            if conn.ssl_enabled:
+                args["sslmode"] = "require"
+            return args
+
+        args = {"connect_timeout": timeout}
+        if conn.ssl_enabled:
+            args["ssl"] = {}
+        return args
+
 
     async def create_connection(
         self, user_id: UUID, data: ConnectionCreate
@@ -107,8 +134,31 @@ class ConnectionService:
     async def delete_connection(
         self, connection_id: UUID, user_id: UUID
     ) -> dict:
-        """Delete a connection."""
+        """
+        Delete a connection.
+
+        Refuses the delete when transfer jobs reference the connection so that
+        history is not silently destroyed by the database-level cascade.
+        """
         conn = await self._get_connection_or_404(connection_id, user_id)
+
+        referencing = await self.db.execute(
+            select(func.count(TransferJob.id)).where(
+                or_(
+                    TransferJob.source_connection_id == connection_id,
+                    TransferJob.target_connection_id == connection_id,
+                )
+            )
+        )
+        if (referencing.scalar() or 0) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This connection is referenced by existing transfers. "
+                    "Delete those transfers first."
+                ),
+            )
+
         await self.db.delete(conn)
         await self.db.flush()
         return {"message": "Connection deleted successfully"}
@@ -118,17 +168,20 @@ class ConnectionService:
     ) -> ConnectionTest:
         """Test database connectivity and update status."""
         conn = await self._get_connection_or_404(connection_id, user_id)
+        engine = None
 
         try:
-            url = self._build_connection_url(conn, sync=True)
-            engine = create_engine(url, connect_args={"connect_timeout": 10})
+            url = self.build_url(conn, sync=True)
+            engine = create_engine(
+                url,
+                connect_args=self.connect_args(conn),
+                poolclass=NullPool,
+            )
 
             start_time = time.time()
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
             latency = (time.time() - start_time) * 1000  # ms
-
-            engine.dispose()
 
             # Update connection status
             conn.last_tested_at = datetime.now(timezone.utc)
@@ -138,7 +191,7 @@ class ConnectionService:
 
             return ConnectionTest(
                 success=True,
-                message=f"Connection successful",
+                message="Connection successful",
                 latency_ms=round(latency, 1),
             )
 
@@ -152,6 +205,9 @@ class ConnectionService:
                 success=False,
                 message=f"Connection failed: {str(e)[:200]}",
             )
+        finally:
+            if engine is not None:
+                engine.dispose()
 
     async def get_connection_model(
         self, connection_id: UUID, user_id: UUID
@@ -160,9 +216,12 @@ class ConnectionService:
         return await self._get_connection_or_404(connection_id, user_id)
 
     def get_sync_engine(self, conn: DatabaseConnection):
-        """Create a synchronous SQLAlchemy engine for a connection."""
-        url = self._build_connection_url(conn, sync=True)
-        return create_engine(url, pool_pre_ping=True, pool_size=3, max_overflow=5)
+        """Create a short-lived synchronous engine for a remote connection."""
+        return create_engine(
+            self.build_url(conn, sync=True),
+            connect_args=self.connect_args(conn),
+            poolclass=NullPool,
+        )
 
     async def _get_connection_or_404(
         self, connection_id: UUID, user_id: UUID

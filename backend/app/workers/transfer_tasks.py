@@ -7,30 +7,50 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, text, inspect, MetaData, Table, Column
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.engine import Engine, URL
+from sqlalchemy.orm import sessionmaker
 
 from app.workers.celery_app import celery_app
 from app.config import settings
+from app.enums import DatabaseType, LogLevel, TransferStatus
 from app.security import decrypt_value
+
+# Reuse a single engine per worker process instead of creating one per task.
+_app_engine: Engine | None = None
+_app_session_factory = None
 
 
 def _get_app_session():
     """Create a synchronous session for the application database."""
-    engine = create_engine(settings.DATABASE_SYNC_URL, pool_pre_ping=True)
-    SessionLocal = sessionmaker(bind=engine)
-    return SessionLocal(), engine
+    global _app_engine, _app_session_factory
+    if _app_engine is None:
+        _app_engine = create_engine(
+            settings.DATABASE_SYNC_URL,
+            pool_pre_ping=True,
+            pool_size=settings.POOL_SIZE,
+            max_overflow=settings.MAX_OVERFLOW,
+        )
+        _app_session_factory = sessionmaker(bind=_app_engine)
+    return _app_session_factory()
 
 
 def _build_url(db_type, host, port, database_name, username, password):
-    """Build a sync database URL."""
-    if db_type == "postgresql":
+    """Build a sync database URL using proper escaping."""
+    if db_type == DatabaseType.POSTGRESQL.value:
         driver = "postgresql+psycopg2"
     else:
         driver = "mysql+pymysql"
-    return f"{driver}://{username}:{password}@{host}:{port}/{database_name}"
+    return URL.create(
+        drivername=driver,
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database_name,
+    )
 
 
-def _add_log(session, job_id, level, message):
+def _add_log(session, job_id, level: LogLevel, message):
     """Add a log entry for a transfer job."""
     session.execute(
         text("""
@@ -40,10 +60,25 @@ def _add_log(session, job_id, level, message):
         {
             "id": str(uuid.uuid4()),
             "job_id": str(job_id),
-            "level": level,
+            "level": level.value,
             "message": message,
             "ts": datetime.now(timezone.utc),
         }
+    )
+    session.commit()
+
+
+def _set_status(session, job_id, status: TransferStatus, **extra):
+    """Update a job's status plus any additional columns."""
+    assignments = ["status = :status"]
+    params = {"id": job_id, "status": status.value}
+    for column, value in extra.items():
+        assignments.append(f"{column} = :{column}")
+        params[column] = value
+
+    session.execute(
+        text(f"UPDATE transfer_jobs SET {', '.join(assignments)} WHERE id = :id"),
+        params,
     )
     session.commit()
 
@@ -62,7 +97,9 @@ def execute_transfer(self, job_id: str):
     6. Track progress via Celery state updates
     7. Handle errors and update final status
     """
-    app_session, app_engine = _get_app_session()
+    app_session = _get_app_session()
+    source_engine = None
+    target_engine = None
 
     try:
         # Load the transfer job
@@ -75,16 +112,11 @@ def execute_transfer(self, job_id: str):
             raise ValueError(f"Transfer job {job_id} not found")
 
         # Update status to running
-        app_session.execute(
-            text("""
-                UPDATE transfer_jobs
-                SET status = 'running', started_at = :ts
-                WHERE id = :id
-            """),
-            {"id": job_id, "ts": datetime.now(timezone.utc)}
+        _set_status(
+            app_session, job_id, TransferStatus.RUNNING,
+            started_at=datetime.now(timezone.utc),
         )
-        app_session.commit()
-        _add_log(app_session, job_id, "info", "Transfer started")
+        _add_log(app_session, job_id, LogLevel.INFO, "Transfer started")
 
         # Load source connection details
         source_conn = app_session.execute(
@@ -121,16 +153,24 @@ def execute_transfer(self, job_id: str):
         source_engine = create_engine(source_url, pool_pre_ping=True)
         target_engine = create_engine(target_url, pool_pre_ping=True)
 
-        _add_log(app_session, job_id, "info", "Connected to source and target databases")
+        _add_log(app_session, job_id, LogLevel.INFO, "Connected to source and target databases")
 
         # Determine schema
         source_schema = job["source_schema"]
         target_schema = job["target_schema"]
 
         if not source_schema:
-            source_schema = "public" if source_conn["db_type"] == "postgresql" else source_conn["database_name"]
+            source_schema = (
+                "public"
+                if source_conn["db_type"] == DatabaseType.POSTGRESQL.value
+                else source_conn["database_name"]
+            )
         if not target_schema:
-            target_schema = "public" if target_conn["db_type"] == "postgresql" else target_conn["database_name"]
+            target_schema = (
+                "public"
+                if target_conn["db_type"] == DatabaseType.POSTGRESQL.value
+                else target_conn["database_name"]
+            )
 
         source_table = job["source_table"]
         target_table = job["target_table"]
@@ -140,12 +180,12 @@ def execute_transfer(self, job_id: str):
         source_columns = source_inspector.get_columns(source_table, schema=source_schema)
 
         # Build qualified table names for SQL
-        if source_conn["db_type"] == "postgresql":
+        if source_conn["db_type"] == DatabaseType.POSTGRESQL.value:
             src_qualified = f'"{source_schema}"."{source_table}"'
         else:
             src_qualified = f"`{source_schema}`.`{source_table}`"
 
-        if target_conn["db_type"] == "postgresql":
+        if target_conn["db_type"] == DatabaseType.POSTGRESQL.value:
             tgt_qualified = f'"{target_schema}"."{target_table}"'
         else:
             tgt_qualified = f"`{target_schema}`.`{target_table}`"
@@ -153,7 +193,7 @@ def execute_transfer(self, job_id: str):
         # Get total row count
         with source_engine.connect() as src_conn:
             count_sql = f"SELECT COUNT(*) FROM {src_qualified}"
-            if job.get("filter_query"):
+            if job["filter_query"]:
                 count_sql += f" WHERE {job['filter_query']}"
             total_rows = src_conn.execute(text(count_sql)).scalar()
 
@@ -163,7 +203,7 @@ def execute_transfer(self, job_id: str):
         )
         app_session.commit()
 
-        _add_log(app_session, job_id, "info", f"Source table has {total_rows} rows")
+        _add_log(app_session, job_id, LogLevel.INFO, f"Source table has {total_rows} rows")
 
         # Update Celery state
         self.update_state(
@@ -172,7 +212,7 @@ def execute_transfer(self, job_id: str):
         )
 
         # Column mapping
-        column_mappings = job.get("column_mappings") or {}
+        column_mappings = job["column_mappings"] or {}
         source_col_names = [c["name"] for c in source_columns]
 
         if column_mappings:
@@ -183,7 +223,7 @@ def execute_transfer(self, job_id: str):
             target_col_names = source_col_names
 
         # Create target table if requested
-        if job.get("create_target_table", True):
+        if job["create_target_table"]:
             try:
                 # Reflect source table and create equivalent in target
                 source_meta = MetaData()
@@ -206,9 +246,15 @@ def execute_transfer(self, job_id: str):
                     if target_columns:
                         target_table_obj = Table(target_table, target_meta, *target_columns)
                         target_meta.create_all(target_engine, checkfirst=True)
-                        _add_log(app_session, job_id, "info", f"Target table '{target_table}' created/verified")
+                        _add_log(
+                            app_session, job_id, LogLevel.INFO,
+                            f"Target table '{target_table}' created/verified",
+                        )
             except Exception as e:
-                _add_log(app_session, job_id, "warning", f"Could not auto-create target table: {str(e)[:200]}")
+                _add_log(
+                    app_session, job_id, LogLevel.WARNING,
+                    f"Could not auto-create target table: {str(e)[:200]}",
+                )
 
         # Transfer data in batches
         batch_size = settings.TRANSFER_BATCH_SIZE
@@ -216,13 +262,13 @@ def execute_transfer(self, job_id: str):
 
         with source_engine.connect() as src_conn:
             # Build SELECT query
-            if source_conn["db_type"] == "postgresql":
+            if source_conn["db_type"] == DatabaseType.POSTGRESQL.value:
                 cols_sql = ", ".join(f'"{c}"' for c in select_cols)
             else:
                 cols_sql = ", ".join(f"`{c}`" for c in select_cols)
 
             select_sql = f"SELECT {cols_sql} FROM {src_qualified}"
-            if job.get("filter_query"):
+            if job["filter_query"]:
                 select_sql += f" WHERE {job['filter_query']}"
 
             # Stream results
@@ -255,7 +301,10 @@ def execute_transfer(self, job_id: str):
                     app_session.commit()
 
                     if transferred % (batch_size * 10) == 0:
-                        _add_log(app_session, job_id, "info", f"Transferred {transferred}/{total_rows} rows ({percent:.1f}%)")
+                        _add_log(
+                            app_session, job_id, LogLevel.INFO,
+                            f"Transferred {transferred}/{total_rows} rows ({percent:.1f}%)",
+                        )
 
             # Insert remaining rows
             if batch:
@@ -263,47 +312,40 @@ def execute_transfer(self, job_id: str):
                 transferred += len(batch)
 
         # Mark as completed
-        app_session.execute(
-            text("""
-                UPDATE transfer_jobs
-                SET status = 'completed', transferred_rows = :rows,
-                    completed_at = :ts
-                WHERE id = :id
-            """),
-            {"rows": transferred, "id": job_id, "ts": datetime.now(timezone.utc)}
+        _set_status(
+            app_session, job_id, TransferStatus.COMPLETED,
+            transferred_rows=transferred,
+            completed_at=datetime.now(timezone.utc),
         )
-        app_session.commit()
 
-        _add_log(app_session, job_id, "info", f"Transfer completed: {transferred} rows transferred")
+        _add_log(
+            app_session, job_id, LogLevel.INFO,
+            f"Transfer completed: {transferred} rows transferred",
+        )
 
-        source_engine.dispose()
-        target_engine.dispose()
-
-        return {"status": "completed", "transferred_rows": transferred}
+        return {"status": TransferStatus.COMPLETED.value, "transferred_rows": transferred}
 
     except Exception as e:
         # Mark as failed
         error_msg = str(e)[:500]
         try:
-            app_session.execute(
-                text("""
-                    UPDATE transfer_jobs
-                    SET status = 'failed', error_message = :err,
-                        completed_at = :ts
-                    WHERE id = :id
-                """),
-                {"err": error_msg, "id": job_id, "ts": datetime.now(timezone.utc)}
+            _set_status(
+                app_session, job_id, TransferStatus.FAILED,
+                error_message=error_msg,
+                completed_at=datetime.now(timezone.utc),
             )
-            app_session.commit()
-            _add_log(app_session, job_id, "error", f"Transfer failed: {error_msg}")
+            _add_log(app_session, job_id, LogLevel.ERROR, f"Transfer failed: {error_msg}")
         except Exception:
             pass
 
         raise
 
     finally:
+        if source_engine is not None:
+            source_engine.dispose()
+        if target_engine is not None:
+            target_engine.dispose()
         app_session.close()
-        app_engine.dispose()
 
 
 def _insert_batch(engine, qualified_table, column_names, batch, db_type):
@@ -311,12 +353,12 @@ def _insert_batch(engine, qualified_table, column_names, batch, db_type):
     if not batch:
         return
 
-    if db_type == "postgresql":
+    if db_type == DatabaseType.POSTGRESQL.value:
         cols = ", ".join(f'"{c}"' for c in column_names)
-        placeholders = ", ".join(f":{c}" for c in column_names)
     else:
         cols = ", ".join(f"`{c}`" for c in column_names)
-        placeholders = ", ".join(f":{c}" for c in column_names)
+
+    placeholders = ", ".join(f":{c}" for c in column_names)
 
     insert_sql = f"INSERT INTO {qualified_table} ({cols}) VALUES ({placeholders})"
 
