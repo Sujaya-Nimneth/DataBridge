@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
+from app.database import get_db
 
 # --- Password Hashing ---
 
@@ -74,11 +75,13 @@ def decode_token(token: str) -> dict:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-    db: AsyncSession = Depends(None),  # Will be overridden in routes
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Dependency to extract and validate the current user from JWT token.
-    Must be used with the database dependency injected.
+    Resolve the authenticated, active user from a bearer access token.
+
+    This is the single source of truth for authentication: it rejects refresh
+    tokens, malformed subjects and deactivated accounts before any handler runs.
     """
     from app.models.user import User
 
@@ -90,14 +93,22 @@ async def get_current_user(
             detail="Invalid token type",
         )
 
-    user_id = payload.get("sub")
-    if user_id is None:
+    subject = payload.get("sub")
+    if subject is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
 
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    try:
+        user_id = UUID(subject)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None or not user.is_active:

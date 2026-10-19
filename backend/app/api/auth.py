@@ -6,13 +6,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.user import User
 from app.schemas.auth import UserCreate, UserLogin, TokenResponse, TokenRefresh, UserResponse
 from app.services.auth_service import AuthService
-from app.security import decode_token, security_scheme
-from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import select
-from app.models.user import User
-from uuid import UUID
+from app.security import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -51,21 +48,6 @@ async def refresh_token(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get the currently authenticated user's profile.
-    """
-    payload = decode_token(credentials.credentials)
-    user_id = payload.get("sub")
-
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        from fastapi import HTTPException, status
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    return UserResponse.model_validate(user)
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    """Get the currently authenticated user's profile."""
+    return UserResponse.model_validate(current_user)
