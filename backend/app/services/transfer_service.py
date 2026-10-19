@@ -14,7 +14,6 @@ from sqlalchemy.orm import selectinload
 from app.models.transfer import TransferJob, TransferLog
 from app.enums import LogLevel, TransferStatus
 from app.sql_utils import UnsafeFilterError, validate_filter_query
-from app.models.connection import DatabaseConnection
 from app.schemas.transfer import TransferCreate, TransferResponse, TransferLogResponse, TransferProgress
 from app.services.connection_service import ConnectionService
 from fastapi import HTTPException, status
@@ -91,7 +90,7 @@ class TransferService:
             self.db.add(log)
             await self.db.flush()
 
-        return await self._to_response(job)
+        return self._to_response(job)
 
     async def list_transfers(
         self,
@@ -103,6 +102,10 @@ class TransferService:
         """List transfer jobs for a user."""
         query = (
             select(TransferJob)
+            .options(
+                selectinload(TransferJob.source_connection),
+                selectinload(TransferJob.target_connection),
+            )
             .where(TransferJob.user_id == user_id)
             .order_by(TransferJob.created_at.desc())
             .limit(limit)
@@ -114,14 +117,14 @@ class TransferService:
 
         result = await self.db.execute(query)
         jobs = result.scalars().all()
-        return [await self._to_response(j) for j in jobs]
+        return [self._to_response(j) for j in jobs]
 
     async def get_transfer(
         self, transfer_id: UUID, user_id: UUID
     ) -> TransferResponse:
         """Get detailed transfer job info including progress."""
         job = await self._get_job_or_404(transfer_id, user_id)
-        return await self._to_response(job, include_progress=True)
+        return self._to_response(job, include_progress=True)
 
     async def get_transfer_logs(
         self, transfer_id: UUID, user_id: UUID
@@ -169,14 +172,19 @@ class TransferService:
         self.db.add(log)
         await self.db.flush()
 
-        return await self._to_response(job)
+        return self._to_response(job)
 
     async def _get_job_or_404(
         self, transfer_id: UUID, user_id: UUID
     ) -> TransferJob:
         """Get transfer job or raise 404."""
         result = await self.db.execute(
-            select(TransferJob).where(
+            select(TransferJob)
+            .options(
+                selectinload(TransferJob.source_connection),
+                selectinload(TransferJob.target_connection),
+            )
+            .where(
                 TransferJob.id == transfer_id,
                 TransferJob.user_id == user_id,
             )
@@ -189,33 +197,12 @@ class TransferService:
             )
         return job
 
-    async def _to_response(
+    def _to_response(
         self, job: TransferJob, include_progress: bool = False
     ) -> TransferResponse:
-        """Convert model to response with optional progress info."""
-        # Get connection names
-        source_name = None
-        target_name = None
-        try:
-            result = await self.db.execute(
-                select(DatabaseConnection).where(
-                    DatabaseConnection.id == job.source_connection_id
-                )
-            )
-            source = result.scalar_one_or_none()
-            if source:
-                source_name = source.name
-
-            result = await self.db.execute(
-                select(DatabaseConnection).where(
-                    DatabaseConnection.id == job.target_connection_id
-                )
-            )
-            target = result.scalar_one_or_none()
-            if target:
-                target_name = target.name
-        except Exception:
-            pass
+        """Convert model to response using already-loaded connections."""
+        source_name = job.source_connection.name if job.source_connection else None
+        target_name = job.target_connection.name if job.target_connection else None
 
         progress = None
         if include_progress and job.status == TransferStatus.RUNNING:
