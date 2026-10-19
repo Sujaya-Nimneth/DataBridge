@@ -200,8 +200,13 @@ class MonitoringService:
             for status in TransferStatus
         }
 
-        # Daily buckets for the last 7 days in one pass
-        day = func.date_trunc("day", TransferJob.created_at)
+        # Daily buckets for the last 7 days in one pass. date_trunc is
+        # PostgreSQL-only, so fall back to date() on other dialects.
+        dialect = self.db.bind.dialect.name if self.db.bind else "postgresql"
+        if dialect == "sqlite":
+            day = func.date(TransferJob.created_at)
+        else:
+            day = func.date_trunc("day", TransferJob.created_at)
         daily_rows = (
             await self.db.execute(
                 select(day.label("day"), func.count(TransferJob.id))
@@ -213,9 +218,11 @@ class MonitoringService:
                 .order_by(day)
             )
         ).all()
-        counts_by_day = {
-            bucket.date().isoformat(): count for bucket, count in daily_rows
-        }
+        counts_by_day = {}
+        for bucket, count in daily_rows:
+            # Postgres returns a datetime, SQLite returns 'YYYY-MM-DD'.
+            key = bucket.date().isoformat() if hasattr(bucket, "date") else str(bucket)[:10]
+            counts_by_day[key] = count
 
         daily_transfers = []
         for offset in range(6, -1, -1):
@@ -223,15 +230,19 @@ class MonitoringService:
             daily_transfers.append({"date": key, "count": counts_by_day.get(key, 0)})
 
         # Average duration computed in the database
+        if dialect == "sqlite":
+            duration_seconds = (
+                func.julianday(TransferJob.completed_at)
+                - func.julianday(TransferJob.started_at)
+            ) * 86400.0
+        else:
+            duration_seconds = func.extract(
+                "epoch", TransferJob.completed_at - TransferJob.started_at
+            )
+
         avg_duration = (
             await self.db.execute(
-                select(
-                    func.avg(
-                        func.extract(
-                            "epoch", TransferJob.completed_at - TransferJob.started_at
-                        )
-                    )
-                ).where(
+                select(func.avg(duration_seconds)).where(
                     TransferJob.user_id == user_id,
                     TransferJob.status == TransferStatus.COMPLETED,
                     TransferJob.started_at.isnot(None),
