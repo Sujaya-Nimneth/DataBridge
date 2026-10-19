@@ -238,12 +238,12 @@ function Transfers() {
                   return (
                     <tr key={tx.id}>
                       <td>
-                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{tx.source_connection_name || 'Unknown'}</div>
+                        <div className="transfer-endpoint-name">{tx.source_connection_name || 'Unknown'}</div>
                         <div className="text-xs text-muted font-mono">{tx.source_table}</div>
                       </td>
-                      <td><HiOutlineArrowRight style={{ color: 'var(--color-text-muted)' }} /></td>
+                      <td><HiOutlineArrowRight className="transfer-arrow" aria-hidden="true" /></td>
                       <td>
-                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{tx.target_connection_name || 'Unknown'}</div>
+                        <div className="transfer-endpoint-name">{tx.target_connection_name || 'Unknown'}</div>
                         <div className="text-xs text-muted font-mono">{tx.target_table}</div>
                       </td>
                       <td>
@@ -252,10 +252,10 @@ function Transfers() {
                           {tx.status}
                         </span>
                       </td>
-                      <td style={{ minWidth: '140px' }}>
+                      <td className="transfer-progress-cell">
                         {tx.status === 'running' ? (
                           <div>
-                            <div className="progress-bar" style={{ marginBottom: '4px' }}>
+                            <div className="progress-bar progress-bar-spaced">
                               <div className="progress-fill animated" style={{ width: `${progress}%` }}></div>
                             </div>
                             <div className="text-xs text-muted">
@@ -331,13 +331,13 @@ function Transfers() {
           )}
         >
               {/* Wizard Steps Indicator */}
-              <div className="wizard-steps" style={{ marginBottom: '28px' }}>
+              <div className="wizard-steps wizard-steps-spaced">
                 {['Source', 'Target', 'Options', 'Review'].map((label, i) => {
                   const stepNum = i + 1;
                   const isActive = wizardStep === stepNum;
                   const isCompleted = wizardStep > stepNum;
                   return (
-                    <div key={label} style={{ display: 'contents' }}>
+                    <div key={label} className="wizard-step-group">
                       <div className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
                         <div className="wizard-step-number">{isCompleted ? '✓' : stepNum}</div>
                         <span className="wizard-step-label">{label}</span>
@@ -470,19 +470,19 @@ function Transfers() {
               {/* Step 4: Review */}
               {wizardStep === 4 && (
                 <div>
-                  <div style={{ background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '16px', alignItems: 'center' }}>
+                  <div className="transfer-summary">
+                    <div className="transfer-summary-grid">
                       <div>
                         <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>SOURCE</div>
-                        <div style={{ fontWeight: 600 }}>
+                        <div className="font-semibold">
                           {connections.find(c => c.id === wizardForm.source_connection_id)?.name || '—'}
                         </div>
                         <div className="font-mono text-sm text-muted">{wizardForm.source_table}</div>
                       </div>
-                      <HiOutlineArrowRight style={{ fontSize: '24px', color: 'var(--color-primary)' }} />
+                      <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
                       <div>
                         <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>TARGET</div>
-                        <div style={{ fontWeight: 600 }}>
+                        <div className="font-semibold">
                           {connections.find(c => c.id === wizardForm.target_connection_id)?.name || '—'}
                         </div>
                         <div className="font-mono text-sm text-muted">
@@ -509,16 +509,16 @@ function Transfers() {
           maxWidth="700px"
           onClose={() => setShowDetail(null)}
         >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+              <div className="transfer-summary-grid mb-6">
                 <div>
                   <div className="text-xs text-muted">SOURCE</div>
-                  <div style={{ fontWeight: 600 }}>{showDetail.source_connection_name}</div>
+                  <div className="font-semibold">{showDetail.source_connection_name}</div>
                   <div className="font-mono text-sm text-muted">{showDetail.source_table}</div>
                 </div>
-                <HiOutlineArrowRight style={{ fontSize: '24px', color: 'var(--color-primary)' }} />
+                <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
                 <div>
                   <div className="text-xs text-muted">TARGET</div>
-                  <div style={{ fontWeight: 600 }}>{showDetail.target_connection_name}</div>
+                  <div className="font-semibold">{showDetail.target_connection_name}</div>
                   <div className="font-mono text-sm text-muted">{showDetail.target_table}</div>
                 </div>
               </div>
@@ -543,8 +543,8 @@ function Transfers() {
               )}
 
               {showDetail.error_message && (
-                <div style={{ background: 'var(--color-danger-bg)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '16px' }}>
-                  <div className="text-sm font-bold" style={{ color: 'var(--color-danger)', marginBottom: '4px' }}>Error</div>
+                <div className="alert alert-danger mb-4">
+                  <div className="text-sm font-bold text-danger mb-4">Error</div>
                   <div className="text-sm font-mono">{showDetail.error_message}</div>
                 </div>
               )}
