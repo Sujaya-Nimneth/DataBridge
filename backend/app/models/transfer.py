@@ -5,8 +5,8 @@ Transfer job and transfer log models for tracking data movement operations.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -26,15 +26,15 @@ class TransferJob(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     # Source
     source_connection_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("database_connections.id", ondelete="CASCADE"),
         nullable=False,
     )
@@ -43,7 +43,7 @@ class TransferJob(Base):
 
     # Target
     target_connection_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("database_connections.id", ondelete="CASCADE"),
         nullable=False,
     )
@@ -51,7 +51,10 @@ class TransferJob(Base):
     target_table: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Configuration
-    column_mappings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # JSONB on PostgreSQL, plain JSON elsewhere (e.g. SQLite in tests).
+    column_mappings: Mapped[dict | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
     filter_query: Mapped[str | None] = mapped_column(Text, nullable=True)
     create_target_table: Mapped[bool] = mapped_column(default=True)
 
@@ -112,10 +115,10 @@ class TransferLog(Base):
     __tablename__ = "transfer_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     transfer_job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("transfer_jobs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

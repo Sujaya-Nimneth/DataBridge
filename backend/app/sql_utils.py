@@ -59,8 +59,15 @@ def validate_filter_query(filter_query: str | None) -> str | None:
 
 
 def quote_identifier(engine: Engine, name: str) -> str:
-    """Quote a single identifier using the target dialect's rules."""
-    return engine.dialect.identifier_preparer.quote(name)
+    """
+    Quote a single identifier using the target dialect's rules.
+
+    Always quoting matters for case-sensitive names: PostgreSQL folds unquoted
+    identifiers to lower case, so a table named ``Orders`` would silently be
+    looked up as ``orders``.
+    """
+    preparer = engine.dialect.identifier_preparer
+    return preparer.quote_identifier(name)
 
 
 def qualify_table(engine: Engine, schema: str | None, table: str) -> str:
