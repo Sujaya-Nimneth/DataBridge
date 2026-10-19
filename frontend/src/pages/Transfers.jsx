@@ -7,6 +7,7 @@ import { connectionsAPI, discoveryAPI, transfersAPI } from '../api/client';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
+import Modal from '../components/Modal';
 import {
   HiOutlinePlus,
   HiOutlinePlay,
@@ -291,13 +292,43 @@ function Transfers() {
 
       {/* Transfer Wizard Modal */}
       {showWizard && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowWizard(false)}>
-          <div className="modal" style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h2>New Transfer</h2>
-              <button className="modal-close" onClick={() => setShowWizard(false)}>×</button>
-            </div>
-            <div className="modal-body">
+        <Modal
+          title="New Transfer"
+          maxWidth="600px"
+          onClose={() => setShowWizard(false)}
+          footer={(
+            <>
+              {wizardStep > 1 && (
+                <button type="button" className="btn btn-secondary" onClick={() => setWizardStep(s => s - 1)}>
+                  Back
+                </button>
+              )}
+              <div style={{ flex: 1 }}></div>
+              {wizardStep < 4 ? (
+                <button type="button" className="btn btn-primary" onClick={() => {
+                  if (wizardStep === 1 && (!wizardForm.source_connection_id || !wizardForm.source_table)) {
+                    toast.error('Please select source connection and table');
+                    return;
+                  }
+                  if (wizardStep === 2 && !wizardForm.target_connection_id) {
+                    toast.error('Please select target connection');
+                    return;
+                  }
+                  if (wizardStep === 2 && !wizardForm.target_table) {
+                    setWizardForm(prev => ({ ...prev, target_table: prev.source_table }));
+                  }
+                  setWizardStep(s => s + 1);
+                }}>
+                  Next
+                </button>
+              ) : (
+                <button type="button" className="btn btn-success" onClick={handleCreateTransfer} id="btn-start-transfer">
+                  <HiOutlinePlay /> Start Transfer
+                </button>
+              )}
+            </>
+          )}
+        >
               {/* Wizard Steps Indicator */}
               <div className="wizard-steps" style={{ marginBottom: '28px' }}>
                 {['Source', 'Target', 'Options', 'Review'].map((label, i) => {
@@ -467,49 +498,16 @@ function Transfers() {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="modal-footer">
-              {wizardStep > 1 && (
-                <button className="btn btn-secondary" onClick={() => setWizardStep(s => s - 1)}>Back</button>
-              )}
-              <div style={{ flex: 1 }}></div>
-              {wizardStep < 4 ? (
-                <button className="btn btn-primary" onClick={() => {
-                  if (wizardStep === 1 && (!wizardForm.source_connection_id || !wizardForm.source_table)) {
-                    toast.error('Please select source connection and table');
-                    return;
-                  }
-                  if (wizardStep === 2 && !wizardForm.target_connection_id) {
-                    toast.error('Please select target connection');
-                    return;
-                  }
-                  if (wizardStep === 2 && !wizardForm.target_table) {
-                    setWizardForm(prev => ({ ...prev, target_table: prev.source_table }));
-                  }
-                  setWizardStep(s => s + 1);
-                }}>
-                  Next
-                </button>
-              ) : (
-                <button className="btn btn-success" onClick={handleCreateTransfer} id="btn-start-transfer">
-                  <HiOutlinePlay /> Start Transfer
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Transfer Detail Modal */}
       {showDetail && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowDetail(null)}>
-          <div className="modal" style={{ maxWidth: '700px' }}>
-            <div className="modal-header">
-              <h2>Transfer Details</h2>
-              <button className="modal-close" onClick={() => setShowDetail(null)}>×</button>
-            </div>
-            <div className="modal-body">
+        <Modal
+          title="Transfer Details"
+          maxWidth="700px"
+          onClose={() => setShowDetail(null)}
+        >
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                   <div className="text-xs text-muted">SOURCE</div>
@@ -564,9 +562,7 @@ function Transfers() {
                   ))
                 )}
               </div>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

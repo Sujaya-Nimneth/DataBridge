@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { connectionsAPI } from '../api/client';
+import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 import {
   HiOutlinePlus,
@@ -196,74 +197,69 @@ function Connections() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
-            <div className="modal-header">
-              <h2>{editConn ? 'Edit Connection' : 'New Connection'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+        <Modal
+          title={editConn ? 'Edit Connection' : 'New Connection'}
+          onClose={() => setShowModal(false)}
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Connection Name</label>
+              <input className="form-input" value={form.name} placeholder="My Production DB"
+                onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Connection Name</label>
-                  <input className="form-input" value={form.name} placeholder="My Production DB"
-                    onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Database Type</label>
-                  <select className="form-input form-select" value={form.db_type}
-                    onChange={(e) => setForm({ ...form, db_type: e.target.value, port: e.target.value === 'postgresql' ? 5432 : 3306 })}
-                    disabled={!!editConn}>
-                    <option value="postgresql">PostgreSQL</option>
-                    <option value="mysql">MySQL</option>
-                  </select>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Host</label>
-                    <input className="form-input" value={form.host} placeholder="localhost"
-                      onChange={(e) => setForm({ ...form, host: e.target.value })} required />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Port</label>
-                    <input className="form-input" type="number" value={form.port}
-                      onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })} required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Database Name</label>
-                  <input className="form-input" value={form.database_name} placeholder="mydb"
-                    onChange={(e) => setForm({ ...form, database_name: e.target.value })} required />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Username</label>
-                    <input className="form-input" value={form.username} placeholder="postgres"
-                      onChange={(e) => setForm({ ...form, username: e.target.value })} required />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Password</label>
-                    <input className="form-input" type="password" value={form.password}
-                      placeholder={editConn ? '(unchanged)' : 'Enter password'}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      required={!editConn} />
-                  </div>
-                </div>
-                <label className="form-checkbox">
-                  <input type="checkbox" checked={form.ssl_enabled}
-                    onChange={(e) => setForm({ ...form, ssl_enabled: e.target.checked })} />
-                  <span className="text-sm">Enable SSL</span>
-                </label>
+            <div className="form-group">
+              <label className="form-label">Database Type</label>
+              <select className="form-input form-select" value={form.db_type}
+                onChange={(e) => setForm({ ...form, db_type: e.target.value, port: e.target.value === 'postgresql' ? 5432 : 3306 })}
+                disabled={!!editConn}>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Host</label>
+                <input className="form-input" value={form.host} placeholder="localhost"
+                  onChange={(e) => setForm({ ...form, host: e.target.value })} required />
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" id="btn-save-connection">
-                  {editConn ? 'Update' : 'Create'} Connection
-                </button>
+              <div className="form-group">
+                <label className="form-label">Port</label>
+                <input className="form-input" type="number" value={form.port}
+                  onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })} required />
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Database Name</label>
+              <input className="form-input" value={form.database_name} placeholder="mydb"
+                onChange={(e) => setForm({ ...form, database_name: e.target.value })} required />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input className="form-input" value={form.username} placeholder="postgres"
+                  onChange={(e) => setForm({ ...form, username: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input className="form-input" type="password" value={form.password}
+                  placeholder={editConn ? '(unchanged)' : 'Enter password'}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required={!editConn} />
+              </div>
+            </div>
+            <label className="form-checkbox">
+              <input type="checkbox" checked={form.ssl_enabled}
+                onChange={(e) => setForm({ ...form, ssl_enabled: e.target.checked })} />
+              <span className="text-sm">Enable SSL</span>
+            </label>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" id="btn-save-connection">
+            {editConn ? 'Update' : 'Create'} Connection
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
