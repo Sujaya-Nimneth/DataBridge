@@ -17,7 +17,9 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget -q --spider http://localhost/ || exit 1
+# 127.0.0.1, not localhost: busybox wget resolves localhost to ::1 first
+# and nginx only listens on IPv4, so the check would report a false failure.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD wget -q --spider http://127.0.0.1/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
