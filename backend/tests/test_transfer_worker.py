@@ -283,3 +283,19 @@ def test_cancel_during_transfer_is_overwritten_by_completion(worker_env):
     assert result.successful(), result.result
     assert fetch_job_row(worker_env, job_id)["status"] == "completed"
     assert target_table_row_count(worker_env) == rows
+
+
+def test_transfer_rejects_malicious_table_name(worker_env):
+    """Identifiers smuggled straight into the jobs table fail the task safely."""
+    seed_source_db(worker_env, 5)
+    job_id = create_job(worker_env, source_table='users"; DROP TABLE x; --')
+
+    result = execute_transfer.apply(args=[job_id])
+
+    assert result.failed()
+    job_row = fetch_job_row(worker_env, job_id)
+    assert job_row["status"] == "failed"
+    assert "source_table" in job_row["error_message"]
+    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    assert tables == []

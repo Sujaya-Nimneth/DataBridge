@@ -3,6 +3,8 @@ Connection service: manages database connections with encryption,
 dynamic engine creation, and connectivity testing.
 """
 
+import logging
+import re
 import time
 from datetime import UTC, datetime
 from uuid import UUID
@@ -24,6 +26,21 @@ from app.schemas.connection import (
 )
 from app.security import decrypt_value, encrypt_value
 from app.services.engine_cache import engine_cache
+
+logger = logging.getLogger(__name__)
+
+# Fragments commonly found in driver errors that would reveal connection
+# topology (credentials, hosts, ports) if echoed back to clients.
+_CREDENTIAL_PATTERN = re.compile(
+    r"(?://\S+:\S+@|password\s*[:=]\s*\S+|user\s*[:=]\s*\S+|@\[[^\]]+\])", re.IGNORECASE
+)
+
+
+def _safe_connection_error(raw: str) -> str:
+    """Reduce a driver exception to a shareable, credential-free reason."""
+    first_line = (raw or "").strip().splitlines()[0] if raw else ""
+    cleaned = _CREDENTIAL_PATTERN.sub("[redacted]", first_line)
+    return cleaned[:200] or "unable to reach the database"
 
 
 class ConnectionService:
@@ -193,14 +210,18 @@ class ConnectionService:
             )
 
         except Exception as e:
+            # Driver messages can embed hosts, users and DSN fragments; keep
+            # the full detail in server logs and store a scrubbed summary.
+            logger.warning("Connection test failed for %s: %s", connection_id, e)
+            reason = _safe_connection_error(str(e))
             conn.last_tested_at = datetime.now(UTC)
             conn.last_test_status = ConnectionStatus.FAILED
-            conn.last_test_message = str(e)[:500]
+            conn.last_test_message = reason[:200]
             await self.db.flush()
 
             return ConnectionTest(
                 success=False,
-                message=f"Connection failed: {str(e)[:200]}",
+                message=f"Connection failed: {reason}",
             )
         finally:
             if engine is not None:
