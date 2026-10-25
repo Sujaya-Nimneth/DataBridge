@@ -5,6 +5,7 @@ Supports schemas, tables, views, columns, and data preview.
 
 import datetime as dt
 import decimal
+import logging
 import uuid as uuid_module
 from typing import Any
 from uuid import UUID
@@ -19,7 +20,14 @@ from app.enums import DatabaseType
 from app.models.connection import DatabaseConnection
 from app.schemas.discovery import ColumnInfo, DataPreview, SchemaInfo, TableInfo
 from app.services.connection_service import ConnectionService
-from app.sql_utils import UnsafeFilterError, qualify_table, validate_filter_query
+from app.sql_utils import (
+    UnsafeFilterError,
+    qualify_table,
+    validate_filter_query,
+    validate_identifier,
+)
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_SCHEMAS = {
     "information_schema",
@@ -36,6 +44,13 @@ def _default_schema(conn: DatabaseConnection) -> str:
     if conn.db_type == DatabaseType.POSTGRESQL:
         return "public"
     return conn.database_name
+
+
+def _check_identifiers(table_name: str, schema: str | None) -> None:
+    """Validate user-supplied identifiers before they reach SQL reflection."""
+    validate_identifier(table_name, "table_name")
+    if schema:
+        validate_identifier(schema, "schema")
 
 
 def _json_safe(value: Any) -> Any:
@@ -121,14 +136,24 @@ class DiscoveryService:
     ) -> list[ColumnInfo]:
         """Get column metadata for a table."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
+        _check_identifiers(table_name, schema)
         try:
             return await to_thread.run_sync(self._get_columns_sync, conn, table_name, schema)
         except HTTPException:
             raise
         except Exception as e:
+            # Driver messages can embed hosts, users and DSN fragments;
+            # keep the detail in server logs and return a safe message.
+            logger.warning(
+                "Column inspection failed for connection %s table %s: %s",
+                connection_id,
+                table_name,
+                e,
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to inspect table: {str(e)[:200]}",
+                detail="Failed to inspect table. Check that it exists and the "
+                "connection has permission to read it.",
             ) from e
 
     def _get_columns_sync(
@@ -179,6 +204,7 @@ class DiscoveryService:
     ) -> DataPreview:
         """Preview data from a table with pagination and optional filtering."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
+        _check_identifiers(table_name, schema)
 
         try:
             safe_filter = validate_filter_query(filter_query)
@@ -200,9 +226,16 @@ class DiscoveryService:
         except HTTPException:
             raise
         except Exception as e:
+            logger.warning(
+                "Preview failed for connection %s table %s: %s",
+                connection_id,
+                table_name,
+                e,
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to preview data: {str(e)[:200]}",
+                detail="Failed to preview data. Check that the table exists and "
+                "any filter is valid for its columns.",
             ) from e
 
     def _preview_sync(
@@ -283,6 +316,7 @@ class DiscoveryService:
     ) -> int:
         """Get the row count for a table."""
         conn = await self.conn_service.get_connection_model(connection_id, user_id)
+        _check_identifiers(table_name, schema)
         return await to_thread.run_sync(self._get_row_count_sync, conn, table_name, schema)
 
     def _get_row_count_sync(

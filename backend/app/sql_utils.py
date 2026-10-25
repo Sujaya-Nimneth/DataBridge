@@ -4,7 +4,12 @@ Helpers for safely building SQL against user-supplied database connections.
 The explorer and transfer paths accept a raw ``WHERE`` fragment from the client.
 That fragment cannot be parameterised (it is a full expression, not a value), so
 it is validated instead: single expression, no statement separators, no comments,
-no data-modifying keywords and no sub-selects.
+no data-modifying keywords, no sub-selects and no known-dangerous functions.
+
+User-supplied identifiers (schemas, tables, columns) are validated against a
+conservative pattern *and* quoted with the target dialect's preparer — the
+pattern keeps names predictable for logs and raw-SQL paths, the quoting closes
+the gap for anything the pattern alone would miss.
 """
 
 import re
@@ -19,9 +24,44 @@ _FORBIDDEN_KEYWORDS = re.compile(
 _FORBIDDEN_TOKENS = (";", "--", "/*", "*/", "\\")
 _MAX_FILTER_LENGTH = 2000
 
+# Functions that either stall the connection (DoS) or read/exfiltrate server
+# files. Called inside a WHERE fragment they serve no legitimate purpose.
+_FORBIDDEN_FUNCTIONS = re.compile(
+    r"\b(pg_sleep|pg_sleep_for|pg_sleep_until|sleep|benchmark|delay|"
+    r"dbms_lock|dbms_pipe|pg_read_file|pg_read_binary_file|pg_ls_dir|"
+    r"pg_ls_logdir|lo_import|lo_export|load_file|readfile|sys_eval)\s*\(",
+    re.IGNORECASE,
+)
+# WAITFOR ... DELAY takes no parentheses; match the keyword itself.
+_FORBIDDEN_KEYWORDS_EXTENDED = re.compile(r"\b(waitfor|exec\s+master)\b", re.IGNORECASE)
+
+_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
 
 class UnsafeFilterError(ValueError):
     """Raised when a supplied filter expression is rejected."""
+
+
+class InvalidIdentifierError(ValueError):
+    """Raised when a user-supplied SQL identifier fails the safety pattern."""
+
+
+def validate_identifier(name: str | None, field: str = "identifier") -> str:
+    """
+    Validate a user-supplied SQL identifier.
+
+    Only plain ``[A-Za-z_][A-Za-z0-9_]{0,63}`` names are accepted: no quoting
+    characters, no dots, no spaces, no unicode. Combined with dialect-aware
+    quoting downstream this removes the identifier-injection vector while still
+    covering the overwhelming majority of real table/column names.
+    """
+    if name is None:
+        raise InvalidIdentifierError(f"{field} is required")
+    if not _IDENTIFIER_PATTERN.match(name):
+        raise InvalidIdentifierError(
+            f"{field} must match [A-Za-z_][A-Za-z0-9_]* (max 64 chars); got {name!r}"
+        )
+    return name
 
 
 def validate_filter_query(filter_query: str | None) -> str | None:
@@ -46,6 +86,12 @@ def validate_filter_query(filter_query: str | None) -> str | None:
         raise UnsafeFilterError("Filter contains a disallowed character sequence")
 
     if _FORBIDDEN_KEYWORDS.search(candidate):
+        raise UnsafeFilterError("Filter contains a disallowed keyword")
+
+    if _FORBIDDEN_FUNCTIONS.search(candidate):
+        raise UnsafeFilterError("Filter contains a disallowed function call")
+
+    if _FORBIDDEN_KEYWORDS_EXTENDED.search(candidate):
         raise UnsafeFilterError("Filter contains a disallowed keyword")
 
     # A bare 'select' is only acceptable inside parentheses-free comparisons;

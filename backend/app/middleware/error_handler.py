@@ -9,6 +9,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.sql_utils import InvalidIdentifierError, UnsafeFilterError
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +26,30 @@ def register_error_handlers(app: FastAPI):
                 "error": True,
                 "status_code": exc.status_code,
                 "message": exc.detail,
+            },
+        )
+
+    @app.exception_handler(InvalidIdentifierError)
+    async def invalid_identifier_handler(request: Request, exc: InvalidIdentifierError):
+        """Reject malformed SQL identifiers as a client error."""
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": True,
+                "status_code": 400,
+                "message": str(exc),
+            },
+        )
+
+    @app.exception_handler(UnsafeFilterError)
+    async def unsafe_filter_handler(request: Request, exc: UnsafeFilterError):
+        """Reject unsafe filter fragments as a client error."""
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": True,
+                "status_code": 400,
+                "message": str(exc),
             },
         )
 

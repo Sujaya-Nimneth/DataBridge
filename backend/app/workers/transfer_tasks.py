@@ -14,6 +14,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.config import settings
 from app.enums import DatabaseType, LogLevel, TransferStatus
 from app.security import decrypt_value
+from app.sql_utils import (
+    qualify_table,
+    quote_identifier,
+    validate_identifier,
+)
 from app.workers.celery_app import celery_app
 
 # Reuse a single engine per worker process instead of creating one per task.
@@ -182,20 +187,21 @@ def execute_transfer(self, job_id: str):
         source_table = job["source_table"]
         target_table = job["target_table"]
 
+        # Identifiers become part of the SQL text: validate before any use.
+        validate_identifier(source_table, "source_table")
+        validate_identifier(target_table, "target_table")
+        if source_schema:
+            validate_identifier(source_schema, "source_schema")
+        if target_schema:
+            validate_identifier(target_schema, "target_schema")
+
         # Get source table info
         source_inspector = inspect(source_engine)
         source_columns = source_inspector.get_columns(source_table, schema=source_schema)
 
-        # Build qualified table names for SQL
-        if source_conn["db_type"] == DatabaseType.POSTGRESQL.value:
-            src_qualified = f'"{source_schema}"."{source_table}"'
-        else:
-            src_qualified = f"`{source_schema}`.`{source_table}`"
-
-        if target_conn["db_type"] == DatabaseType.POSTGRESQL.value:
-            tgt_qualified = f'"{target_schema}"."{target_table}"'
-        else:
-            tgt_qualified = f"`{target_schema}`.`{target_table}`"
+        # Build qualified table names with dialect-aware quoting
+        src_qualified = qualify_table(source_engine, source_schema, source_table)
+        tgt_qualified = qualify_table(target_engine, target_schema, target_table)
 
         # Get total row count
         with source_engine.connect() as src_conn:
@@ -221,9 +227,13 @@ def execute_transfer(self, job_id: str):
         if isinstance(raw_mappings, str):
             raw_mappings = json.loads(raw_mappings)
         column_mappings = raw_mappings or {}
+
         source_col_names = [c["name"] for c in source_columns]
 
         if column_mappings:
+            unknown = sorted(set(column_mappings) - set(source_col_names))
+            if unknown:
+                raise ValueError(f"column_mappings references unknown source columns: {unknown}")
             select_cols = list(column_mappings.keys())
             target_col_names = [column_mappings[c] for c in select_cols]
         else:
@@ -271,11 +281,8 @@ def execute_transfer(self, job_id: str):
         transferred = 0
 
         with source_engine.connect() as src_conn:
-            # Build SELECT query
-            if source_conn["db_type"] == DatabaseType.POSTGRESQL.value:
-                cols_sql = ", ".join(f'"{c}"' for c in select_cols)
-            else:
-                cols_sql = ", ".join(f"`{c}`" for c in select_cols)
+            # Build SELECT query with dialect-aware column quoting
+            cols_sql = ", ".join(quote_identifier(source_engine, c) for c in select_cols)
 
             select_sql = f"SELECT {cols_sql} FROM {src_qualified}"
             if job["filter_query"]:
@@ -294,13 +301,7 @@ def execute_transfer(self, job_id: str):
 
                 if len(batch) >= batch_size:
                     # Insert batch into target
-                    _insert_batch(
-                        target_engine,
-                        tgt_qualified,
-                        target_col_names,
-                        batch,
-                        target_conn["db_type"],
-                    )
+                    _insert_batch(target_engine, tgt_qualified, target_col_names, batch)
                     transferred += len(batch)
                     batch = []
 
@@ -330,13 +331,7 @@ def execute_transfer(self, job_id: str):
 
             # Insert remaining rows
             if batch:
-                _insert_batch(
-                    target_engine,
-                    tgt_qualified,
-                    target_col_names,
-                    batch,
-                    target_conn["db_type"],
-                )
+                _insert_batch(target_engine, tgt_qualified, target_col_names, batch)
                 transferred += len(batch)
 
         # Mark as completed
@@ -382,16 +377,12 @@ def execute_transfer(self, job_id: str):
         app_session.close()
 
 
-def _insert_batch(engine, qualified_table, column_names, batch, db_type):
+def _insert_batch(engine, qualified_table, column_names, batch):
     """Insert a batch of rows into the target table."""
     if not batch:
         return
 
-    if db_type == DatabaseType.POSTGRESQL.value:
-        cols = ", ".join(f'"{c}"' for c in column_names)
-    else:
-        cols = ", ".join(f"`{c}`" for c in column_names)
-
+    cols = ", ".join(quote_identifier(engine, c) for c in column_names)
     placeholders = ", ".join(f":{c}" for c in column_names)
 
     insert_sql = f"INSERT INTO {qualified_table} ({cols}) VALUES ({placeholders})"

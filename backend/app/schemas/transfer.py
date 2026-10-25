@@ -2,24 +2,40 @@
 Pydantic schemas for data transfer endpoints.
 """
 
+import re
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
+
+_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def _require_identifier(value: str) -> str:
+    """Reject anything that is not a plain, quotable SQL identifier."""
+    if not _IDENTIFIER_PATTERN.match(value):
+        raise ValueError(
+            f"identifiers must match [A-Za-z_][A-Za-z0-9_]* (max 64 chars); got {value!r}"
+        )
+    return value
+
+
+Identifier = Annotated[str, AfterValidator(_require_identifier)]
 
 
 class TransferCreate(BaseModel):
     """Schema for creating a new transfer job."""
 
     source_connection_id: UUID
-    source_schema: str | None = None
-    source_table: str
+    source_schema: Identifier | None = None
+    source_table: Identifier
 
     target_connection_id: UUID
-    target_schema: str | None = None
-    target_table: str
+    target_schema: Identifier | None = None
+    target_table: Identifier
 
-    column_mappings: dict | None = None
+    column_mappings: dict[Identifier, Identifier] | None = None
     filter_query: str | None = None
     create_target_table: bool = True
 
