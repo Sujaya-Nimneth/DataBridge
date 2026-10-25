@@ -16,17 +16,38 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-user_role = sa.Enum("admin", "user", name="user_role")
-database_type = sa.Enum("postgresql", "mysql", name="database_type")
-connection_status = sa.Enum("success", "failed", "unknown", name="connection_status")
-transfer_status = sa.Enum("pending", "running", "completed", "failed", "cancelled", name="transfer_status")
-log_level = sa.Enum("info", "warning", "error", name="log_level")
+# The types are created up front (checkfirst) and only *referenced* by the
+# tables below: with the default create_type=True each create_table would
+# emit CREATE TYPE again and fail with DuplicateObject on PostgreSQL.
+user_role = postgresql.ENUM("admin", "user", name="user_role", create_type=False)
+database_type = postgresql.ENUM("postgresql", "mysql", name="database_type", create_type=False)
+connection_status = postgresql.ENUM(
+    "success", "failed", "unknown", name="connection_status", create_type=False
+)
+transfer_status = postgresql.ENUM(
+    "pending", "running", "completed", "failed", "cancelled",
+    name="transfer_status", create_type=False,
+)
+log_level = postgresql.ENUM("info", "warning", "error", name="log_level", create_type=False)
+
+# Instances that actually create the types (used by the loop below).
+_user_role_ddl = sa.Enum("admin", "user", name="user_role")
+_database_type_ddl = sa.Enum("postgresql", "mysql", name="database_type")
+_connection_status_ddl = sa.Enum("success", "failed", "unknown", name="connection_status")
+_transfer_status_ddl = sa.Enum(
+    "pending", "running", "completed", "failed", "cancelled", name="transfer_status"
+)
+_log_level_ddl = sa.Enum("info", "warning", "error", name="log_level")
 
 
 def upgrade() -> None:
     bind = op.get_bind()
     for enum_type in (
-        user_role, database_type, connection_status, transfer_status, log_level,
+        _user_role_ddl,
+        _database_type_ddl,
+        _connection_status_ddl,
+        _transfer_status_ddl,
+        _log_level_ddl,
     ):
         enum_type.create(bind, checkfirst=True)
 
@@ -148,6 +169,10 @@ def downgrade() -> None:
 
     bind = op.get_bind()
     for enum_type in (
-        log_level, transfer_status, connection_status, database_type, user_role,
+        _log_level_ddl,
+        _transfer_status_ddl,
+        _connection_status_ddl,
+        _database_type_ddl,
+        _user_role_ddl,
     ):
         enum_type.drop(bind, checkfirst=True)
