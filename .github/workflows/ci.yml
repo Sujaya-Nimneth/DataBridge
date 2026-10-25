@@ -88,7 +88,7 @@ jobs:
           python-version: "3.11"
 
       - name: Audit runtime dependencies
-        run: pipx run pip-audit --disable-hash-check -r backend/requirements.txt
+        run: pipx run pip-audit -r backend/requirements.txt
 
   frontend-quality:
     name: Frontend lint & format
