@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from starlette.responses import JSONResponse
 
-from app.api import auth, connections, discovery, monitoring, transfers
+from app.api import admin, auth, connections, discovery, monitoring, transfers
 from app.config import settings
 from app.database import close_db, engine, init_db
 from app.middleware.error_handler import register_error_handlers
@@ -104,6 +104,7 @@ app.include_router(connections.router, prefix=settings.API_PREFIX)
 app.include_router(discovery.router, prefix=settings.API_PREFIX)
 app.include_router(transfers.router, prefix=settings.API_PREFIX)
 app.include_router(monitoring.router, prefix=settings.API_PREFIX)
+app.include_router(admin.router, prefix=settings.API_PREFIX)
 
 
 @app.get("/", tags=["Health"])

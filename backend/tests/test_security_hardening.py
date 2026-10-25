@@ -216,3 +216,63 @@ def test_stored_credentials_remain_encrypted():
     token = encrypt_value("s3cr3t-value")
     assert "s3cr3t-value" not in token
     assert decrypt_value(token) == "s3cr3t-value"
+
+
+# --- Connection activation & admin role ---
+
+
+async def _create_connection(client, headers, name="conn"):
+    response = await client.post(
+        "/api/connections",
+        headers=headers,
+        json={
+            "name": name,
+            "db_type": "postgresql",
+            "host": "localhost",
+            "port": 5432,
+            "database_name": "app",
+            "username": "app",
+            "password": "secret",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+async def test_deactivated_connection_blocks_discovery(client, auth_headers):
+    conn = await _create_connection(client, auth_headers)
+
+    deactivate = await client.put(
+        f"/api/connections/{conn['id']}", headers=auth_headers, json={"is_active": False}
+    )
+    assert deactivate.status_code == 200
+    assert deactivate.json()["is_active"] is False
+
+    schemas = await client.get(f"/api/discovery/{conn['id']}/schemas", headers=auth_headers)
+    assert schemas.status_code == 400
+    assert "deactivated" in schemas.json()["message"]
+
+    reactivate = await client.put(
+        f"/api/connections/{conn['id']}", headers=auth_headers, json={"is_active": True}
+    )
+    assert reactivate.json()["is_active"] is True
+
+
+async def test_toggle_preserves_test_status(client, auth_headers):
+    conn = await _create_connection(client, auth_headers)
+    await client.post(f"/api/connections/{conn['id']}/test", headers=auth_headers)
+    after_test = await client.get(f"/api/connections/{conn['id']}", headers=auth_headers)
+    status_before = after_test.json()["last_test_status"]
+    assert status_before in ("success", "failed")  # a test ran
+
+    updated = await client.put(
+        f"/api/connections/{conn['id']}", headers=auth_headers, json={"is_active": False}
+    )
+    # the toggle itself must not reset the recorded status
+    assert updated.json()["last_test_status"] == status_before
+
+
+async def test_admin_endpoints_require_admin_role(client, auth_headers):
+    response = await client.get("/api/admin/users", headers=auth_headers)
+    assert response.status_code == 403
+    assert "Administrator" in response.json()["message"]

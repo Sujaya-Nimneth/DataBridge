@@ -138,10 +138,18 @@ class ConnectionService:
             conn.password = encrypt_value(data.password)
         if data.ssl_enabled is not None:
             conn.ssl_enabled = data.ssl_enabled
+        if data.is_active is not None:
+            conn.is_active = data.is_active
 
-        # Reset test status on update
-        conn.last_test_status = ConnectionStatus.UNKNOWN
-        conn.last_test_message = None
+        # Reset test status only when endpoint or credentials changed, so
+        # toggling activation does not discard a known-good test result.
+        endpoint_changed = any(
+            getattr(data, field) is not None
+            for field in ("host", "port", "database_name", "username", "password")
+        )
+        if endpoint_changed:
+            conn.last_test_status = ConnectionStatus.UNKNOWN
+            conn.last_test_message = None
 
         await self.db.flush()
         await self.db.refresh(conn)
@@ -228,8 +236,20 @@ class ConnectionService:
                 engine.dispose()
 
     async def get_connection_model(self, connection_id: UUID, user_id: UUID) -> DatabaseConnection:
-        """Get the raw connection model (for internal use by other services)."""
-        return await self._get_connection_or_404(connection_id, user_id)
+        """
+        Get the raw connection model (for internal use by other services).
+
+        Deactivated connections are refused: discovery and transfers are the
+        paths that touch remote databases, and a deactivated connection must
+        not be usable from either.
+        """
+        conn = await self._get_connection_or_404(connection_id, user_id)
+        if not conn.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Connection '{conn.name}' is deactivated",
+            )
+        return conn
 
     @staticmethod
     def _fingerprint(conn: DatabaseConnection) -> tuple:

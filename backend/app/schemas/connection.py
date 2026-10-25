@@ -31,6 +31,7 @@ class ConnectionUpdate(BaseModel):
     username: str | None = Field(None, min_length=1)
     password: str | None = None
     ssl_enabled: bool | None = None
+    is_active: bool | None = None
 
 
 class ConnectionResponse(BaseModel):
