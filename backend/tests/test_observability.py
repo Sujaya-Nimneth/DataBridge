@@ -27,12 +27,22 @@ class _FakeRedis:
         return None
 
 
-async def test_health_reports_dependency_status(client):
+async def test_health_reports_dependency_status(client, monkeypatch):
     """/health must actually probe the database and Redis."""
+    import app.main as main_module
+
+    class _BrokenEngine:
+        def connect(self):
+            raise RuntimeError("database unreachable")
+
+    def _broken_redis(*_args, **_kwargs):
+        raise RuntimeError("redis unreachable")
+
+    monkeypatch.setattr(main_module, "engine", _BrokenEngine())
+    monkeypatch.setattr("redis.asyncio.from_url", _broken_redis)
+
     response = await client.get("/health")
 
-    # In the test environment neither PostgreSQL nor Redis is running,
-    # so the probe must observe them as down — proving it really checks.
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "unhealthy"
