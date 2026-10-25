@@ -28,6 +28,18 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build: ./backend
+    environment:
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: alembic upgrade head
+    restart: "no"
+
   backend:
     build: ./backend
     environment:
@@ -45,6 +57,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build: ./backend
@@ -59,6 +73,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
 
   frontend:
