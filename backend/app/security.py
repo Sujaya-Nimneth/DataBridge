@@ -7,8 +7,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from cryptography.fernet import Fernet
-from jose import JWTError, jwt
+from cryptography.fernet import Fernet, InvalidToken
+import jwt
+from jwt.exceptions import InvalidTokenError
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -65,7 +66,7 @@ def decode_token(token: str) -> dict:
             token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -123,18 +124,23 @@ async def get_current_user(
 # --- Fernet Encryption for Database Credentials ---
 
 def _get_fernet() -> Fernet:
-    """Get Fernet instance. Generates a valid key from settings if needed."""
+    """
+    Build the Fernet instance from settings.
+
+    The key must be a real Fernet key (the output of Fernet.generate_key()).
+    Invalid keys raise immediately: silently deriving a key from arbitrary
+    input would encrypt credentials under a key nobody can reproduce after
+    a config change.
+    """
     key = settings.ENCRYPTION_KEY
-    # If the key is not a valid Fernet key, derive one
     try:
         return Fernet(key.encode() if isinstance(key, str) else key)
-    except Exception:
-        # Derive a valid Fernet key from the provided string
-        import base64
-        import hashlib
-        derived = hashlib.sha256(key.encode()).digest()
-        fernet_key = base64.urlsafe_b64encode(derived)
-        return Fernet(fernet_key)
+    except (InvalidToken, ValueError, TypeError) as exc:
+        raise ValueError(
+            "ENCRYPTION_KEY is not a valid Fernet key. "
+            "Generate one with: python -c \"from cryptography.fernet import "
+            "Fernet; print(Fernet.generate_key().decode())\""
+        ) from exc
 
 
 def encrypt_value(value: str) -> str:
