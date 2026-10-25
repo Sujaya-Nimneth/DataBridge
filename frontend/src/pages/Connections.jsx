@@ -284,8 +284,11 @@ function Connections() {
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">Connection Name</label>
+              <label className="form-label" htmlFor="input-conn-name">
+                Connection Name
+              </label>
               <input
+                id="input-conn-name"
                 className="form-input"
                 value={form.name}
                 placeholder="My Production DB"
@@ -294,8 +297,11 @@ function Connections() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Database Type</label>
+              <label className="form-label" htmlFor="input-conn-type">
+                Database Type
+              </label>
               <select
+                id="input-conn-type"
                 className="form-input form-select"
                 value={form.db_type}
                 onChange={(e) =>
@@ -313,8 +319,11 @@ function Connections() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Host</label>
+                <label className="form-label" htmlFor="input-conn-host">
+                  Host
+                </label>
                 <input
+                  id="input-conn-host"
                   className="form-input"
                   value={form.host}
                   placeholder="localhost"
@@ -344,8 +353,11 @@ function Connections() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Database Name</label>
+              <label className="form-label" htmlFor="input-conn-db">
+                Database Name
+              </label>
               <input
+                id="input-conn-db"
                 className="form-input"
                 value={form.database_name}
                 placeholder="mydb"
@@ -355,8 +367,11 @@ function Connections() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Username</label>
+                <label className="form-label" htmlFor="input-conn-user">
+                  Username
+                </label>
                 <input
+                  id="input-conn-user"
                   className="form-input"
                   value={form.username}
                   placeholder="postgres"
@@ -365,8 +380,11 @@ function Connections() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Password</label>
+                <label className="form-label" htmlFor="input-conn-pass">
+                  Password
+                </label>
                 <input
+                  id="input-conn-pass"
                   className="form-input"
                   type="password"
                   value={form.password}

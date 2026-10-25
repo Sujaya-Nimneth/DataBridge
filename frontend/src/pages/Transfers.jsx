@@ -566,8 +566,11 @@ function Transfers() {
           {wizardStep === 2 && (
             <div>
               <div className="form-group">
-                <label className="form-label">Target Connection</label>
+                <label className="form-label" htmlFor="wizard-target-connection">
+                  Target Connection
+                </label>
                 <select
+                  id="wizard-target-connection"
                   className="form-input form-select"
                   value={wizardForm.target_connection_id}
                   onChange={(e) => {
@@ -636,8 +639,11 @@ function Transfers() {
           {wizardStep === 3 && (
             <div>
               <div className="form-group">
-                <label className="form-label">Filter (Optional SQL WHERE clause)</label>
+                <label className="form-label" htmlFor="wizard-filter">
+                  Filter (Optional SQL WHERE clause)
+                </label>
                 <input
+                  id="wizard-filter"
                   className="form-input font-mono"
                   value={wizardForm.filter_query}
                   placeholder="e.g. status = 'active' AND created_at > '2024-01-01'"
