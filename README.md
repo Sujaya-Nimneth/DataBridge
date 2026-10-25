@@ -117,6 +117,21 @@ Navigate to http://localhost:5173 and register a new account.
 ### 5. Add your first database connection
 Go to **Connections** → **Add Connection** and enter your database details.
 
+### 60-second demo with sample data
+Want to see a full transfer without provisioning anything yourself?
+
+```bash
+# add the demo overlay: a seeded PostgreSQL source and a MySQL target
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+# register a demo user, connect both databases and run a
+# PostgreSQL -> MySQL transfer through the public API
+./demo/demo_transfer.sh
+```
+
+Then sign in at http://localhost:5173 (`demo@databridge.local` /
+`demo-password-123`) to explore the data and watch the transfer history.
+
 ---
 
 ## 📁 Manual Setup (Without Docker)
@@ -131,8 +146,8 @@ python -m venv venv
 source venv/bin/activate  # macOS/Linux
 # or: venv\Scripts\activate  # Windows
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (runtime + dev tooling)
+pip install -r requirements-dev.txt
 
 # Configure environment
 cp .env.example .env
@@ -144,8 +159,9 @@ alembic upgrade head
 # Start the API server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Start Celery worker (separate terminal)
+# Start Celery worker + beat (separate terminals)
 celery -A app.workers.celery_app worker --loglevel=info
+celery -A app.workers.celery_app beat --loglevel=info
 ```
 
 ### Frontend
@@ -160,12 +176,23 @@ npm ci
 npm run dev
 ```
 
-### Tests
+### Tests and quality gates
 
 ```bash
+# Backend: 82 tests incl. the end-to-end transfer engine, with a
+# coverage gate (>= 70%), plus ruff and mypy
 cd backend
 python -m pytest
+ruff check . && ruff format --check .
+mypy app
+
+# Frontend: Vitest + React Testing Library, ESLint and Prettier
+cd frontend
+npm test
+npm run lint && npm run format:check
 ```
+
+See [docs/TESTING.md](docs/TESTING.md) for what each suite covers.
 
 ---
 
@@ -176,6 +203,11 @@ python -m pytest
 | [Architecture](docs/ARCHITECTURE.md) | System design, component architecture, and design decisions |
 | [API Reference](docs/API.md) | Complete REST API documentation |
 | [Setup Guide](docs/SETUP.md) | Detailed environment configuration and deployment guide |
+| [Testing Guide](docs/TESTING.md) | Test philosophy, suites, and conventions |
+| [ADRs](docs/adr/) | Architecture decision records (token rotation, filter validation, staging transfers, migrations) |
+| [Contributing](CONTRIBUTING.md) | Development setup and conventions |
+| [Security Policy](SECURITY.md) | Reporting vulnerabilities and the security model |
+| [Changelog](CHANGELOG.md) | Notable changes |
 | [Swagger UI](http://localhost:8000/docs) | Interactive API documentation (when running) |
 
 ---
@@ -185,33 +217,40 @@ python -m pytest
 ```
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # Route handlers (auth, connections, discovery, transfers, monitoring)
+│   │   ├── api/          # Route handlers (auth, connections, discovery, transfers, monitoring, admin)
 │   │   ├── models/       # SQLAlchemy ORM models
 │   │   ├── schemas/      # Pydantic request/response schemas
 │   │   ├── services/     # Business logic layer
-│   │   ├── workers/      # Celery background tasks
-│   │   ├── middleware/   # Error handling
+│   │   ├── workers/      # Celery tasks (transfers, stale-job reaper)
+│   │   ├── middleware/   # Error handling, request IDs + structured logging
+│   │   ├── sql_utils.py  # Identifier validation and filter safety
+│   │   ├── rate_limit.py # Per-IP rate limiting (auth endpoints)
 │   │   ├── config.py     # Application settings
 │   │   ├── database.py   # Database engine & session
 │   │   ├── security.py   # JWT, encryption, password hashing
 │   │   └── main.py       # FastAPI entry point
 │   ├── alembic/          # Database migrations
-│   ├── requirements.txt
-│   └── Dockerfile
+│   ├── requirements.txt  # Runtime dependencies (audited)
+│   ├── requirements-dev.txt  # Dev/CI tooling
+│   └── Dockerfile        # Non-root image with HEALTHCHECK
 ├── frontend/
 │   ├── src/
 │   │   ├── api/          # Axios client & API modules
-│   │   ├── components/   # Reusable UI components
+│   │   ├── components/   # Reusable UI components (accessible Modal, Sidebar)
 │   │   ├── context/      # React context (auth)
-│   │   ├── hooks/        # Custom hooks
+│   │   ├── hooks/        # Custom hooks (non-overlapping polling)
 │   │   ├── pages/        # Page components
 │   │   ├── App.jsx       # Root component with routing
 │   │   ├── main.jsx      # Entry point
 │   │   └── index.css     # Design system
 │   ├── package.json
-│   └── Dockerfile
-├── docs/                 # Documentation
-├── docker-compose.yml
+│   └── Dockerfile        # Multi-stage build served by nginx
+├── demo/                 # Seeded demo databases + scripted end-to-end demo
+├── docs/                 # Documentation + ADRs
+├── docker-compose.yml    # Production-like stack (migrations, healthchecks, limits)
+├── docker-compose.dev.yml# Hot-reload development stack
+├── docker-compose.demo.yml # Sample source/target databases
+├── .github/workflows/ci.yml # Lint, types, tests, coverage, audits
 └── README.md
 ```
 
@@ -219,13 +258,17 @@ python -m pytest
 
 ## 🔑 Security Features
 
-1. **JWT Authentication** — Short-lived access tokens (30 min) + refresh tokens (7 days)
-2. **Password Hashing** — bcrypt via passlib
-3. **Credential Encryption** — Fernet symmetric encryption for stored database credentials
-4. **CORS Protection** — Configured allowed origins
-5. **Input Validation** — Pydantic schemas for all API inputs
-6. **SQL Injection Prevention** — Parameterized queries via SQLAlchemy
-7. **Error Handling** — Structured error responses without leaking internals
+1. **JWT Authentication** — Short-lived access tokens + refresh tokens with rotation, revocation and reuse detection (see [ADR-001](docs/adr/0001-refresh-token-rotation.md))
+2. **Rate Limiting** — Per-IP limits on registration, login and token refresh
+3. **Password Hashing** — bcrypt
+4. **Credential Encryption** — Fernet symmetric encryption for stored database credentials; invalid keys abort startup
+5. **CORS Protection** — Configured allowed origins
+6. **Input Validation** — Pydantic schemas for all API inputs
+7. **SQL Injection Prevention** — Parameterized queries, validated identifiers, dialect-aware quoting, filter denylist (see [ADR-002](docs/adr/0002-filter-validation.md))
+8. **Tenant Isolation** — Every query is ownership-scoped; cross-tenant access returns 404
+9. **Atomic Transfers** — Staged and published atomically; failures never leave partial data (see [ADR-003](docs/adr/0003-staging-transfers.md))
+10. **Error Handling** — Structured error responses without leaking driver internals
+11. **Dependency Audits** — pip-audit and npm audit gates in CI, Dependabot for updates
 
 ---
 
@@ -234,14 +277,15 @@ python -m pytest
 | Decision | Rationale |
 |----------|-----------|
 | **FastAPI over Django** | I needed async support and built-in API docs — FastAPI handles I/O-heavy DB operations much better |
-| **Celery for transfers** | Transfers can run for minutes on large tables, so they need proper background processing with retry support |
+| **Celery for transfers** | Transfers can run for minutes on large tables, so they need proper background processing, progress tracking and a reaper for orphaned jobs |
+| **Staging tables for atomicity** | Cross-database copies cannot share a transaction; staging + publish makes transfers atomic anyway and re-runnable without duplicates |
 | **Fernet encryption** | The app needs to decrypt credentials to connect to user databases — symmetric encryption fits this use case, with the key stored separately in env vars |
 | **SQLAlchemy inspect()** | Lets me reflect any user database schema dynamically without knowing its structure ahead of time |
 | **Vanilla CSS** | Gives me full control over the dark-theme glassmorphism design without any framework overhead |
-| **Batch processing** | Without batching, a 10M-row transfer would exhaust memory — configurable batch sizes keep it safe |
+| **Batch processing + streaming cursors** | Without batching and server-side cursors, a 10M-row transfer would exhaust memory |
 
 ---
 
 ## 📝 License
 
-MIT
+MIT — see [LICENSE](LICENSE).

@@ -70,7 +70,9 @@ Authenticate and receive tokens.
 
 #### POST `/api/auth/refresh`
 
-Refresh an expired access token.
+Refresh an expired access token. The presented refresh token is **rotated**:
+it cannot be used again, and replaying a rotated token revokes every session
+for the account (reuse detection).
 
 **Request Body:**
 ```json
@@ -79,9 +81,44 @@ Refresh an expired access token.
 }
 ```
 
+#### POST `/api/auth/logout`
+
+Revoke all refresh tokens for the authenticated user. **Requires authentication.**
+
+**Response (200):**
+```json
+{ "message": "Logged out successfully" }
+```
+
 #### GET `/api/auth/me`
 
 Get current user profile. **Requires authentication.**
+
+> Rate limits (per IP, outside DEBUG): register 5/min, login 10/min,
+> refresh 20/min. Exceeded limits return `429` in the common error envelope.
+
+### Administration
+
+#### GET `/api/admin/users`
+
+List all platform users with their connection and transfer counts.
+**Requires the `admin` role** (403 otherwise).
+
+**Response (200):**
+```json
+[
+  {
+    "id": "uuid",
+    "email": "user@example.com",
+    "full_name": "John Doe",
+    "role": "user",
+    "is_active": true,
+    "created_at": "2026-01-01T00:00:00Z",
+    "connection_count": 2,
+    "transfer_count": 14
+  }
+]
+```
 
 ---
 
@@ -145,6 +182,9 @@ Get details of a specific connection.
 #### PUT `/api/connections/{id}`
 
 Update a connection. All fields are optional. Password can be omitted to keep the current value.
+`is_active: false` deactivates the connection — deactivated connections are
+refused by discovery and transfer creation (400) until reactivated; toggling
+does not reset the recorded connection-test status.
 
 #### DELETE `/api/connections/{id}`
 
@@ -267,6 +307,14 @@ Get total row count.
 #### POST `/api/transfers`
 
 Create and start a data transfer job. Runs asynchronously via Celery.
+
+Transfers are **atomic**: rows stage in a per-job table and publish only
+when every row arrived (rename when the target is new, transactional
+DELETE+INSERT otherwise). Failures and cancellations leave the target
+untouched, so a failed job can simply be re-run.
+
+Identifiers (`*_schema`, `*_table`, `column_mappings` keys and values)
+must match `[A-Za-z_][A-Za-z0-9_]{0,63}`; violations return 422.
 
 **Request Body:**
 ```json

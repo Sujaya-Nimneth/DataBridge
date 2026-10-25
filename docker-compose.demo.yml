@@ -1,0 +1,37 @@
+# Demo overlay: sample source (PostgreSQL) and target (MySQL) databases.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#   ./demo/demo_transfer.sh
+#
+# Then sign in at http://localhost:5173 and explore the seeded data.
+
+services:
+  demo-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo_pass
+      POSTGRES_DB: demo_source
+    volumes:
+      - ./demo/seed_postgres.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  demo-mysql:
+    image: mysql:8
+    environment:
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demo_pass
+      MYSQL_DATABASE: demo_target
+      MYSQL_ROOT_PASSWORD: demo_root
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pdemo_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

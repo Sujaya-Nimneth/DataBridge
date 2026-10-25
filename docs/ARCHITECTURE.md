@@ -27,7 +27,7 @@ App.jsx (Router + Auth Guard)
 **Key Design Decisions:**
 - **Vanilla CSS Design System**: I went with custom CSS over Tailwind/Bootstrap to have full control over the dark-theme glassmorphism design. It also avoids framework lock-in.
 - **Context API for Auth**: React Context handles auth state well enough here. Pulling in Redux or Zustand would be overkill for managing a single user session.
-- **Polling for Progress**: Transfer progress uses `setInterval`-based polling. WebSockets would be more efficient at scale, but polling is simpler to implement, reliable, and auto-stops when transfers finish.
+- **Polling for Progress**: Transfer progress uses chained-`setTimeout` polling (see `usePolling`) so a slow response can never stack overlapping requests; in-flight requests are aborted on unmount. WebSockets would be more efficient at scale, but polling is simpler, reliable, and auto-stops when transfers finish.
 
 ---
 
@@ -39,11 +39,12 @@ Each domain area has its own router module:
 
 | Module | Prefix | Responsibility |
 |--------|--------|---------------|
-| `auth.py` | `/api/auth` | Registration, login, token refresh |
-| `connections.py` | `/api/connections` | Connection CRUD + testing |
+| `auth.py` | `/api/auth` | Registration, login, token refresh/rotation, logout (rate limited) |
+| `connections.py` | `/api/connections` | Connection CRUD + testing + activation |
 | `discovery.py` | `/api/discovery` | Schema/table/column inspection |
 | `transfers.py` | `/api/transfers` | Transfer job management |
 | `monitoring.py` | `/api/monitoring` | Dashboard stats + metrics |
+| `admin.py` | `/api/admin` | Admin-only platform views |
 
 **Key Design Decisions:**
 - **JWT Bearer Auth**: All protected routes use `HTTPBearer` dependency for token extraction. This keeps auth concerns separate from business logic.
@@ -68,7 +69,7 @@ API Route → Service → ORM Models / External Connections
 
 **Key Design Decisions:**
 - **Service per domain**: Keeps controllers thin and makes business logic independently testable.
-- **Dynamic engine creation**: Each user connection gets its own SQLAlchemy engine, built on-demand from decrypted credentials. I don't cache engines long-term to avoid stale connections piling up.
+- **Cached engines with fingerprints**: Each user connection gets its own SQLAlchemy engine, reused through a thread-safe cache (TTL + LRU cap) keyed by a credential fingerprint. Editing or deleting a connection invalidates its engine, so stale credentials never serve queries.
 
 ---
 
@@ -102,13 +103,18 @@ Transfer execution runs in Celery workers to prevent blocking the API server dur
 1. API creates TransferJob (status: pending)
 2. Dispatches Celery task with job ID
 3. Worker connects to source & target DBs
-4. Counts source rows → sets total_rows
-5. Reads data in batches (configurable size)
-6. Applies column mappings
-7. Inserts batches into target DB
-8. Updates progress via Celery state + app DB
-9. On completion/failure → updates final status
+4. Validates identifiers + column mappings against the reflected source
+5. Creates a per-job staging table on the target
+6. Streams source rows into staging in batches (SSCursor on MySQL)
+7. Checks for cancellation between batches
+8. Publishes staged data atomically (rename, or DELETE+INSERT in one
+   transaction when the target exists); failure/cancel drops staging
+9. Updates progress via Celery state + app DB, with guarded status
+   transitions so a late worker cannot overwrite CANCELLED
 ```
+
+A Celery Beat task reaps jobs orphaned by crashed workers (RUNNING too
+long) or failed dispatch (PENDING too long).
 
 **Key Design Decisions:**
 - **Celery over FastAPI BackgroundTasks**: FastAPI's built-in background tasks run in-process and are lost on restart. Celery gives me persistent queuing, retries, and proper state tracking.
@@ -124,12 +130,17 @@ Transfer execution runs in Celery workers to prevent blocking the API server dur
 │                    Security Layers                    │
 ├──────────────────────────────────────────────────────┤
 │  1. CORS Policy       → Restrict allowed origins     │
-│  2. JWT Authentication → Verify identity per request  │
-│  3. Input Validation   → Pydantic schema enforcement  │
-│  4. Credential Encrypt → Fernet for stored passwords  │
-│  5. Password Hashing   → bcrypt (one-way)            │
-│  6. SQL Safety         → SQLAlchemy parameterization  │
-│  7. Error Sanitization → No internal details in API   │
+│  2. Rate Limiting      → slowapi on auth endpoints    │
+│  3. JWT Auth           → Verify identity per request  │
+│  4. Token Rotation     → jti-tracked refresh tokens,  │
+│                          reuse revokes all sessions   │
+│  5. Input Validation   → Pydantic schema enforcement  │
+│  6. Identifier Safety  → pattern + dialect quoting    │
+│  7. Filter Validation  → WHERE-fragment denylist      │
+│  8. Credential Encrypt → Fernet for stored passwords  │
+│  9. Password Hashing   → bcrypt (one-way)            │
+│ 10. SQL Safety         → SQLAlchemy parameterization  │
+│ 11. Error Sanitization → No internal details in API   │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -140,9 +151,9 @@ Transfer execution runs in Celery workers to prevent blocking the API server dur
 | Polling vs WebSockets | Polling (simpler) | WebSockets for real-time updates |
 | Sync schema reflection | SQLAlchemy inspect() requires sync | Could use raw async SQL queries |
 | Single-process Celery | Sufficient for demo | Multi-worker with Flower monitoring |
-| No column mapping UI | Auto-map by name | Drag-and-drop mapping interface |
-| LocalStorage for JWT | Simple implementation | HttpOnly cookies (more secure) |
-| No rate limiting | Out of scope | Redis-based rate limiter |
+| Filter validation style | Denylist + identifier pattern (see ADR-002) | SQL parser / read-only sessions |
+| Transfer atomicity | Staging table + publish (see ADR-003) | Single huge transaction |
+| LocalStorage for JWT | Simple implementation, mitigated by short access-token life + refresh rotation and revocation | HttpOnly cookies (more secure) |
 
 ## Scalability Considerations
 
