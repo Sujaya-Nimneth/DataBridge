@@ -6,12 +6,13 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-databridge}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-databridge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}
       POSTGRES_DB: ${POSTGRES_DB:-databridge}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-databridge}"]
       interval: 10s
@@ -21,7 +22,8 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -31,7 +33,7 @@ services:
   migrate:
     build: ./backend
     environment:
-      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
     depends_on:
@@ -43,8 +45,8 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
-      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
@@ -59,12 +61,14 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 512m
 
   worker:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
-      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
@@ -75,13 +79,21 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 1g
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME --timeout 10 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
 
   beat:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
-      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-databridge}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
@@ -92,6 +104,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 256m
     command: celery -A app.workers.celery_app beat --loglevel=info
 
   frontend:
@@ -100,6 +114,8 @@ services:
       - "5173:80"
     depends_on:
       - backend
+    restart: unless-stopped
+    mem_limit: 256m
 
 volumes:
   postgres_data:

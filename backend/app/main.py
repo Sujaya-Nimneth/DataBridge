@@ -3,25 +3,25 @@ DataBridge - Data Connectivity & Transfer Platform
 Main FastAPI application entry point.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 from starlette.responses import JSONResponse
 
 from app.api import auth, connections, discovery, monitoring, transfers
 from app.config import settings
-from app.database import close_db, init_db
+from app.database import close_db, engine, init_db
 from app.middleware.error_handler import register_error_handlers
+from app.middleware.request_context import RequestContextMiddleware, configure_logging
 from app.rate_limit import limiter
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if settings.DEBUG else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure logging: readable text in debug, structured JSON in production.
+configure_logging(settings.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -75,6 +75,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request IDs on every request/response pair
+app.add_middleware(RequestContextMiddleware)
+
 # Rate limiting for abuse-prone endpoints (see app.rate_limit)
 app.state.limiter = limiter
 
@@ -116,8 +119,44 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Detailed health check."""
-    return {
-        "status": "healthy",
-        "version": settings.APP_VERSION,
-    }
+    """
+    Liveness + readiness probe.
+
+    Actually checks the application database and Redis so an orchestrator
+    stops routing traffic to a node whose dependencies are down, rather
+    than trusting a static "healthy" string.
+    """
+    checks: dict[str, str] = {}
+
+    try:
+        async with asyncio.timeout(3):
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        checks["database"] = "up"
+    except Exception as exc:
+        logger.warning("Health check: database unreachable: %s", exc)
+        checks["database"] = "down"
+
+    try:
+        import redis.asyncio as aioredis
+
+        client = aioredis.from_url(settings.REDIS_URL, socket_timeout=3)
+        try:
+            async with asyncio.timeout(3):
+                await client.ping()
+            checks["redis"] = "up"
+        finally:
+            await client.aclose()
+    except Exception as exc:
+        logger.warning("Health check: redis unreachable: %s", exc)
+        checks["redis"] = "down"
+
+    healthy = all(value == "up" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "healthy" if healthy else "unhealthy",
+            "version": settings.APP_VERSION,
+            "checks": checks,
+        },
+    )

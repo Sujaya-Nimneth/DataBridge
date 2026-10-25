@@ -91,6 +91,7 @@ The API refuses to start with placeholder secrets, so set real values first:
 cat > .env <<EOF
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+POSTGRES_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
 EOF
 ```
 Docker Compose reads these variables from the environment or a `.env` file next
