@@ -107,6 +107,13 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     command: celery -A app.workers.celery_app beat --loglevel=info
+    # Beat has no HTTP server; override the image's HTTP healthcheck with a
+    # process check (slim images lack pgrep, so read /proc directly).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0 if b'beat' in open('/proc/1/cmdline','rb').read() else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   frontend:
     build: ./frontend
