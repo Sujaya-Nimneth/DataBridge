@@ -32,7 +32,7 @@ jobs:
         env:
           DEBUG: "true"
           SECRET_KEY: ci-secret-key-that-is-long-enough-123456
-          ENCRYPTION_KEY: ci-encryption-key
+          ENCRYPTION_KEY: eKNAOtb7BYu1WMlxkh5tdnFLeNbaF5qAVmJi5MvVg2o=
         run: python -m pytest
 
       - name: Verify migrations render
@@ -40,7 +40,7 @@ jobs:
         env:
           DEBUG: "true"
           SECRET_KEY: ci-secret-key-that-is-long-enough-123456
-          ENCRYPTION_KEY: ci-encryption-key
+          ENCRYPTION_KEY: eKNAOtb7BYu1WMlxkh5tdnFLeNbaF5qAVmJi5MvVg2o=
           DATABASE_SYNC_URL: postgresql+psycopg2://ci:ci@localhost:5432/ci
         run: python -m alembic upgrade head --sql > /dev/null
 

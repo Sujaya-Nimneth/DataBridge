@@ -88,7 +88,7 @@ cd DataBridge
 ### 2. Configure secrets
 The API refuses to start with placeholder secrets, so set real values first:
 ```bash
-cat > .env <<'EOF'
+cat > .env <<EOF
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 EOF

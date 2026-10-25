@@ -3,11 +3,26 @@ Application configuration using Pydantic BaseSettings.
 Loads from environment variables and .env file.
 """
 
+from cryptography.fernet import Fernet, InvalidToken
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 DEFAULT_SECRET_KEY = "your-secret-key-change-in-production-minimum-32-characters-long"
-DEFAULT_ENCRYPTION_KEY = "your-fernet-key-change-in-production"
+# A syntactically valid Fernet key so dev bootstrapping works out of the box;
+# production rejects this exact value (and any weak look-alike) below.
+DEFAULT_ENCRYPTION_KEY = "RGF0YUJyaWRnZS1leGFtcGxlLWtleS1kb250LXVzZSE="
+
+_WEAK_SECRET_MARKERS = ("change-this", "your-", "example", "placeholder", "$(")
+
+
+def _is_weak_secret(value: str) -> bool:
+    """Detect placeholder-ish secrets: known defaults, template markers or shell leftovers."""
+    lowered = value.lower()
+    return (
+        value in {DEFAULT_SECRET_KEY, DEFAULT_ENCRYPTION_KEY}
+        or any(marker in lowered for marker in _WEAK_SECRET_MARKERS)
+        or "$(" in value
+    )
 
 
 class Settings(BaseSettings):
@@ -54,21 +69,38 @@ class Settings(BaseSettings):
     }
 
     @model_validator(mode="after")
-    def reject_placeholder_secrets(self) -> "Settings":
+    def validate_secrets(self) -> "Settings":
         """
-        Refuse to boot outside debug mode with the documented placeholder secrets.
+        Guard against misconfigured secrets at boot.
 
-        Running production on defaults is how a mistyped encryption key silently
-        makes every stored credential permanently undecryptable.
+        ENCRYPTION_KEY must always be a real Fernet key — a silently derived
+        key would make stored credentials permanently undecryptable after any
+        config change. Outside debug mode, placeholder-ish or too-short
+        secrets are rejected outright.
         """
+        try:
+            Fernet(self.ENCRYPTION_KEY.encode())
+        except (InvalidToken, ValueError, TypeError) as exc:
+            raise ValueError(
+                "ENCRYPTION_KEY is not a valid Fernet key. Generate one with: "
+                "python -c \"from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())\""
+            ) from exc
+
         if self.DEBUG:
             return self
 
-        placeholders = {DEFAULT_SECRET_KEY, DEFAULT_ENCRYPTION_KEY}
-        if self.SECRET_KEY in placeholders or self.ENCRYPTION_KEY in placeholders:
+        if _is_weak_secret(self.SECRET_KEY):
             raise ValueError(
-                "Refusing to start with the default secret. "
-                "Set SECRET_KEY and ENCRYPTION_KEY in your environment."
+                "Refusing to start with a placeholder SECRET_KEY. "
+                "Set SECRET_KEY in your environment to a strong random value."
+            )
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long.")
+        if _is_weak_secret(self.ENCRYPTION_KEY):
+            raise ValueError(
+                "Refusing to start with a placeholder ENCRYPTION_KEY. "
+                "Set ENCRYPTION_KEY in your environment to a generated Fernet key."
             )
         return self
 

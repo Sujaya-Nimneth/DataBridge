@@ -9,8 +9,12 @@ the Postgres dialect rather than executing them.
 import os
 
 # Settings are validated at import time; provide non-placeholder secrets.
+# The ENCRYPTION_KEY must be a valid Fernet key (invalid keys fail fast).
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-long-enough-1234")
-os.environ.setdefault("ENCRYPTION_KEY", "test-encryption-key")
+os.environ.setdefault(
+    "ENCRYPTION_KEY",
+    "cdLz4uF5bVNrMnOWBT4wJpZhGcS6vqkXyR8EaTfDgUh=",  # test-only Fernet key
+)
 os.environ.setdefault("DEBUG", "true")
 
 import pytest_asyncio  # noqa: E402
