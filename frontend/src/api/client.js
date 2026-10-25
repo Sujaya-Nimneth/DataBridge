@@ -69,6 +69,7 @@ export const authAPI = {
   register: (data) => client.post('/auth/register', data),
   login: (data) => client.post('/auth/login', data),
   refresh: (refreshToken) => client.post('/auth/refresh', { refresh_token: refreshToken }),
+  logout: () => client.post('/auth/logout'),
   getProfile: () => client.get('/auth/me'),
 };
 

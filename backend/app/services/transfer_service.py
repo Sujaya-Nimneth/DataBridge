@@ -92,7 +92,7 @@ class TransferService:
     async def list_transfers(
         self,
         user_id: UUID,
-        status_filter: str | None = None,
+        status_filter: TransferStatus | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[TransferResponse]:
@@ -110,7 +110,7 @@ class TransferService:
         )
 
         if status_filter:
-            query = query.where(TransferJob.status == TransferStatus(status_filter))
+            query = query.where(TransferJob.status == status_filter)
 
         result = await self.db.execute(query)
         jobs = result.scalars().all()

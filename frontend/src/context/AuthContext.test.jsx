@@ -4,11 +4,13 @@ import { AuthProvider, useAuth } from './AuthContext';
 
 const loginMock = vi.fn();
 const registerMock = vi.fn();
+const logoutMock = vi.fn().mockResolvedValue({});
 
 vi.mock('../api/client', () => ({
   authAPI: {
     login: (...args) => loginMock(...args),
     register: (...args) => registerMock(...args),
+    logout: (...args) => logoutMock(...args),
   },
 }));
 
@@ -80,7 +82,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user').textContent).toBe('user@example.com');
   });
 
-  it('logout clears storage and user state', async () => {
+  it('logout revokes server-side and clears storage and user state', async () => {
     localStorage.setItem('access_token', 'access-1');
     localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'user@example.com' }));
     renderProbe();
@@ -89,6 +91,7 @@ describe('AuthContext', () => {
       screen.getByText('logout').click();
     });
 
+    expect(logoutMock).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem('access_token')).toBeNull();
     expect(screen.getByTestId('user').textContent).toBe('anonymous');
   });

@@ -54,6 +54,9 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    // Revoke refresh tokens server-side (best effort — tokens are cleared
+    // locally regardless so the session ends immediately).
+    authAPI.logout().catch(() => {});
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');

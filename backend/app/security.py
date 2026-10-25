@@ -5,7 +5,7 @@ for protecting stored database credentials.
 
 from datetime import UTC, datetime, timedelta
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import bcrypt
 import jwt
@@ -53,10 +53,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def create_refresh_token(data: dict) -> str:
-    """Create a JWT refresh token with longer expiry."""
+    """Create a JWT refresh token with a unique ID for revocation support."""
     to_encode = data.copy()
     expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({"exp": expire, "type": "refresh", "jti": uuid4().hex})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

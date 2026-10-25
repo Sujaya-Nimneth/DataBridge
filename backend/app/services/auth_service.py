@@ -1,13 +1,19 @@
 """
 Authentication service: user registration, login, and token management.
+
+Refresh tokens are rotated on every use and tracked server-side by their
+``jti``: presenting an already-rotated token is treated as theft and revokes
+every session for that user.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
 from app.security import (
@@ -19,6 +25,11 @@ from app.security import (
 )
 
 
+def _aware(dt: datetime) -> datetime:
+    """SQLite returns naive datetimes; normalise before comparing."""
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+
 class AuthService:
     """Handles user authentication and registration."""
 
@@ -27,7 +38,6 @@ class AuthService:
 
     async def register(self, data: UserCreate) -> TokenResponse:
         """Register a new user and return tokens."""
-        # Check if email already exists
         result = await self.db.execute(select(User).where(User.email == data.email))
         if result.scalar_one_or_none():
             raise HTTPException(
@@ -35,7 +45,6 @@ class AuthService:
                 detail="Email already registered",
             )
 
-        # Create user
         user = User(
             email=data.email,
             hashed_password=hash_password(data.password),
@@ -43,15 +52,8 @@ class AuthService:
         )
         self.db.add(user)
         await self.db.flush()
-        await self.db.refresh(user)
 
-        # Generate tokens
-        token_data = {"sub": str(user.id)}
-        return TokenResponse(
-            access_token=create_access_token(token_data),
-            refresh_token=create_refresh_token(token_data),
-            user=UserResponse.model_validate(user),
-        )
+        return await self._issue_tokens(user)
 
     async def login(self, data: UserLogin) -> TokenResponse:
         """Authenticate user and return tokens."""
@@ -70,21 +72,49 @@ class AuthService:
                 detail="Account is deactivated",
             )
 
-        token_data = {"sub": str(user.id)}
-        return TokenResponse(
-            access_token=create_access_token(token_data),
-            refresh_token=create_refresh_token(token_data),
-            user=UserResponse.model_validate(user),
-        )
+        return await self._issue_tokens(user)
 
     async def refresh_token(self, refresh_token: str) -> TokenResponse:
-        """Issue new tokens using a valid refresh token."""
+        """Issue new tokens using a valid refresh token, rotating it."""
         payload = decode_token(refresh_token)
 
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token type",
+            )
+
+        jti = payload.get("jti")
+        if not jti:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token is not revocable; log in again",
+            )
+
+        record = (
+            await self.db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
+        ).scalar_one_or_none()
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token not recognised",
+            )
+
+        if record.revoked_at is not None:
+            # Reuse of a rotated token: assume compromise, kill every session.
+            # Commit explicitly: the 401 below must not roll back the revocation.
+            await self._revoke_all(record.user_id)
+            await self.db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token already used; all sessions revoked",
+            )
+
+        if _aware(record.expires_at) <= datetime.now(UTC):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token expired",
             )
 
         user_id = payload.get("sub")
@@ -97,20 +127,56 @@ class AuthService:
                 detail="User not found or inactive",
             )
 
+        # Rotate: the presented token can never be used again.
+        record.revoked_at = datetime.now(UTC)
+        await self._purge_expired()
+
+        return await self._issue_tokens(user)
+
+    async def logout(self, user_id: UUID) -> dict:
+        """Revoke every refresh token for the user."""
+        await self._revoke_all(user_id)
+        return {"message": "Logged out successfully"}
+
+    async def _issue_tokens(self, user: User) -> TokenResponse:
+        """Create an access/refresh pair and persist the refresh token."""
         token_data = {"sub": str(user.id)}
+        access = create_access_token(token_data)
+        refresh = create_refresh_token(token_data)
+        refresh_payload = decode_token(refresh)
+
+        self.db.add(
+            RefreshToken(
+                jti=refresh_payload["jti"],
+                user_id=user.id,
+                expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=UTC),
+            )
+        )
+        await self.db.flush()
+
         return TokenResponse(
-            access_token=create_access_token(token_data),
-            refresh_token=create_refresh_token(token_data),
+            access_token=access,
+            refresh_token=refresh,
             user=UserResponse.model_validate(user),
         )
 
-    async def get_user(self, user_id: UUID) -> UserResponse:
-        """Get user profile by ID."""
-        result = await self.db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+    async def _revoke_all(self, user_id: UUID) -> None:
+        """Revoke all outstanding refresh tokens for a user."""
+        result = await self.db.execute(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
             )
-        return UserResponse.model_validate(user)
+        )
+        now = datetime.now(UTC)
+        for record in result.scalars():
+            record.revoked_at = now
+        await self.db.flush()
+
+    async def _purge_expired(self) -> None:
+        """Delete expired refresh tokens so the table does not grow forever."""
+        await self.db.execute(
+            delete(RefreshToken)
+            .where(RefreshToken.expires_at <= datetime.now(UTC))
+            .execution_options(synchronize_session=False)
+        )
