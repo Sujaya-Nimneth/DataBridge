@@ -51,9 +51,7 @@ function AppLayout({ children }) {
   return (
     <div className="app-layout">
       <Sidebar />
-      <main className="main-content">
-        {children}
-      </main>
+      <main className="main-content">{children}</main>
     </div>
   );
 }
@@ -64,60 +62,57 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/" replace /> : <Login />}
-      />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Dashboard />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/connections"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Connections />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/explorer"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Explorer />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/transfers"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Transfers />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/monitoring"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Monitoring />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/connections"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Connections />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/explorer"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Explorer />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transfers"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Transfers />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/monitoring"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Monitoring />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

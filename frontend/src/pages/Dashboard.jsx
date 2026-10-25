@@ -40,9 +40,7 @@ function Dashboard() {
       setConnStatuses(connRes.data);
     } catch (err) {
       // Surface the failure instead of silently rendering zeros.
-      setLoadError(
-        err.response?.data?.message || 'Could not load dashboard data.'
-      );
+      setLoadError(err.response?.data?.message || 'Could not load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -50,12 +48,18 @@ function Dashboard() {
 
   const statusColor = (status) => {
     switch (status) {
-      case 'completed': return 'var(--color-success)';
-      case 'running': return 'var(--color-primary)';
-      case 'failed': return 'var(--color-danger)';
-      case 'pending': return 'var(--color-warning)';
-      case 'cancelled': return 'var(--color-text-muted)';
-      default: return 'var(--color-text-muted)';
+      case 'completed':
+        return 'var(--color-success)';
+      case 'running':
+        return 'var(--color-primary)';
+      case 'failed':
+        return 'var(--color-danger)';
+      case 'pending':
+        return 'var(--color-warning)';
+      case 'cancelled':
+        return 'var(--color-text-muted)';
+      default:
+        return 'var(--color-text-muted)';
     }
   };
 
@@ -181,7 +185,9 @@ function Dashboard() {
           </div>
           {activity.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 20px' }}>
-              <div className="empty-state-icon"><HiOutlineClipboardList aria-hidden="true" /></div>
+              <div className="empty-state-icon">
+                <HiOutlineClipboardList aria-hidden="true" />
+              </div>
               <h3>No activity yet</h3>
               <p>Start by creating a connection and running your first transfer</p>
             </div>
@@ -189,10 +195,7 @@ function Dashboard() {
             <div className="activity-feed">
               {activity.map((item) => (
                 <div key={item.id} className="activity-item">
-                  <div
-                    className="activity-dot"
-                    style={{ background: statusColor(item.status) }}
-                  />
+                  <div className="activity-dot" style={{ background: statusColor(item.status) }} />
                   <div className="activity-content">
                     <div className="activity-description">{item.description}</div>
                     <div className="flex items-center gap-2">
@@ -222,7 +225,9 @@ function Dashboard() {
           </div>
           {connStatuses.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 20px' }}>
-              <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
+              <div className="empty-state-icon">
+                <HiOutlineDatabase aria-hidden="true" />
+              </div>
               <h3>No connections</h3>
               <p>Add a database connection to get started</p>
               <button className="btn btn-primary" onClick={() => navigate('/connections')}>
@@ -268,7 +273,16 @@ function Dashboard() {
       {stats?.total_rows_transferred > 0 && (
         <div className="card mt-6" style={{ textAlign: 'center', padding: '32px' }}>
           <div className="text-muted text-sm mb-4">Total Rows Transferred</div>
-          <div style={{ fontSize: '48px', fontWeight: '800', letterSpacing: '-2px', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <div
+            style={{
+              fontSize: '48px',
+              fontWeight: '800',
+              letterSpacing: '-2px',
+              background: 'var(--gradient-primary)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             {stats.total_rows_transferred.toLocaleString()}
           </div>
         </div>

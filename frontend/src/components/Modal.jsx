@@ -31,9 +31,9 @@ export function Modal({ title, onClose, children, footer, maxWidth = '540px' }) 
 
       if (event.key !== 'Tab' || !dialogRef.current) return;
 
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll(FOCUSABLE)
-      ).filter((el) => el.offsetParent !== null);
+      const focusable = Array.from(dialogRef.current.querySelectorAll(FOCUSABLE)).filter(
+        (el) => el.offsetParent !== null,
+      );
 
       if (focusable.length === 0) {
         event.preventDefault();
@@ -51,7 +51,7 @@ export function Modal({ title, onClose, children, footer, maxWidth = '540px' }) 
         first.focus();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   useEffect(() => {
@@ -92,12 +92,7 @@ export function Modal({ title, onClose, children, footer, maxWidth = '540px' }) 
       >
         <div className="modal-header">
           <h2>{title}</h2>
-          <button
-            type="button"
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Close dialog"
-          >
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
             ×
           </button>
         </div>
@@ -105,7 +100,7 @@ export function Modal({ title, onClose, children, footer, maxWidth = '540px' }) 
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 

@@ -22,7 +22,7 @@ client.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Response interceptor: handle 401 and token refresh
@@ -59,7 +59,7 @@ client.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default client;
@@ -85,8 +85,7 @@ export const connectionsAPI = {
 // Discovery API
 export const discoveryAPI = {
   getSchemas: (connId) => client.get(`/discovery/${connId}/schemas`),
-  getTables: (connId, schema) =>
-    client.get(`/discovery/${connId}/tables`, { params: { schema } }),
+  getTables: (connId, schema) => client.get(`/discovery/${connId}/tables`, { params: { schema } }),
   getColumns: (connId, table, schema) =>
     client.get(`/discovery/${connId}/tables/${table}/columns`, { params: { schema } }),
   previewData: (connId, table, params) =>

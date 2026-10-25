@@ -28,13 +28,15 @@ function Explorer() {
   const [activeTab, setActiveTab] = useState('columns');
   const navigate = useNavigate();
 
-  useEffect(() => { loadConnections(); }, []);
+  useEffect(() => {
+    loadConnections();
+  }, []);
 
   const loadConnections = async () => {
     try {
       const res = await connectionsAPI.list();
       setConnections(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load connections');
     } finally {
       setLoading(false);
@@ -54,14 +56,14 @@ function Explorer() {
     if (type === 'connection') {
       try {
         const res = await discoveryAPI.getSchemas(data.id);
-        setTreeData(prev => ({ ...prev, [`schemas-${data.id}`]: res.data }));
+        setTreeData((prev) => ({ ...prev, [`schemas-${data.id}`]: res.data }));
       } catch {
         toast.error('Failed to load schemas');
       }
     } else if (type === 'schema') {
       try {
         const res = await discoveryAPI.getTables(data.connId, data.schema);
-        setTreeData(prev => ({ ...prev, [`tables-${data.connId}-${data.schema}`]: res.data }));
+        setTreeData((prev) => ({ ...prev, [`tables-${data.connId}-${data.schema}`]: res.data }));
       } catch {
         toast.error('Failed to load tables');
       }
@@ -86,11 +88,11 @@ function Explorer() {
     setPreviewLoading(true);
     setActiveTab('preview');
     try {
-      const res = await discoveryAPI.previewData(
-        selectedTable.connId,
-        selectedTable.tableName,
-        { schema: selectedTable.schema, page: 1, page_size: 50 }
-      );
+      const res = await discoveryAPI.previewData(selectedTable.connId, selectedTable.tableName, {
+        schema: selectedTable.schema,
+        page: 1,
+        page_size: 50,
+      });
       setPreview(res.data);
     } catch {
       toast.error('Failed to load data preview');
@@ -102,7 +104,9 @@ function Explorer() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay"><div className="spinner spinner-lg"></div></div>
+        <div className="loading-overlay">
+          <div className="spinner spinner-lg"></div>
+        </div>
       </div>
     );
   }
@@ -117,7 +121,9 @@ function Explorer() {
       {connections.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon"><HiOutlineSearch aria-hidden="true" /></div>
+            <div className="empty-state-icon">
+              <HiOutlineSearch aria-hidden="true" />
+            </div>
             <h3>No connections available</h3>
             <p>Create a database connection first to start exploring data.</p>
             <button className="btn btn-primary" onClick={() => navigate('/connections')}>
@@ -129,7 +135,17 @@ function Explorer() {
         <div className="explorer-layout">
           {/* Tree Sidebar */}
           <div className="explorer-sidebar">
-            <div style={{ padding: '8px 4px', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div
+              style={{
+                padding: '8px 4px',
+                marginBottom: '8px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
               Database Objects
             </div>
             <div className="tree-view" role="tree" aria-label="Database objects">
@@ -139,7 +155,12 @@ function Explorer() {
                 const schemas = treeData[`schemas-${conn.id}`] || [];
 
                 return (
-                  <div key={conn.id} className="tree-node" role="treeitem" aria-expanded={!!isExpanded}>
+                  <div
+                    key={conn.id}
+                    className="tree-node"
+                    role="treeitem"
+                    aria-expanded={!!isExpanded}
+                  >
                     <button
                       type="button"
                       className="tree-node-button"
@@ -148,7 +169,10 @@ function Explorer() {
                       <span className="tree-node-icon">
                         {isExpanded ? <HiOutlineChevronDown /> : <HiOutlineChevronRight />}
                       </span>
-                      <span className="tree-node-icon" style={{ color: conn.db_type === 'postgresql' ? '#6699ff' : '#00b4d8' }}>
+                      <span
+                        className="tree-node-icon"
+                        style={{ color: conn.db_type === 'postgresql' ? '#6699ff' : '#00b4d8' }}
+                      >
                         <HiOutlineDatabase />
                       </span>
                       <span className="tree-node-label">{conn.name}</span>
@@ -162,24 +186,40 @@ function Explorer() {
                           const tables = treeData[`tables-${conn.id}-${schema.name}`] || [];
 
                           return (
-                            <div key={schema.name} className="tree-node" role="treeitem" aria-expanded={!!isSchemaExpanded}>
+                            <div
+                              key={schema.name}
+                              className="tree-node"
+                              role="treeitem"
+                              aria-expanded={!!isSchemaExpanded}
+                            >
                               <button
                                 type="button"
                                 className="tree-node-button"
-                                onClick={() => toggleNode(schemaKey, 'schema', { connId: conn.id, schema: schema.name })}
+                                onClick={() =>
+                                  toggleNode(schemaKey, 'schema', {
+                                    connId: conn.id,
+                                    schema: schema.name,
+                                  })
+                                }
                               >
                                 <span className="tree-node-icon">
-                                  {isSchemaExpanded ? <HiOutlineChevronDown /> : <HiOutlineChevronRight />}
+                                  {isSchemaExpanded ? (
+                                    <HiOutlineChevronDown />
+                                  ) : (
+                                    <HiOutlineChevronRight />
+                                  )}
                                 </span>
                                 <span className="tree-node-label">
-                                  {schema.name} <span className="text-muted text-xs">({schema.table_count})</span>
+                                  {schema.name}{' '}
+                                  <span className="text-muted text-xs">({schema.table_count})</span>
                                 </span>
                               </button>
 
                               {isSchemaExpanded && (
                                 <div className="tree-children">
                                   {tables.map((table) => {
-                                    const isSelected = selectedTable?.connId === conn.id &&
+                                    const isSelected =
+                                      selectedTable?.connId === conn.id &&
                                       selectedTable?.schema === schema.name &&
                                       selectedTable?.tableName === table.name;
 
@@ -189,10 +229,24 @@ function Explorer() {
                                           type="button"
                                           className={`tree-node-button ${isSelected ? 'selected' : ''}`}
                                           aria-current={isSelected ? 'true' : undefined}
-                                          onClick={() => selectTable(conn.id, schema.name, table.name, conn.name)}
+                                          onClick={() =>
+                                            selectTable(conn.id, schema.name, table.name, conn.name)
+                                          }
                                         >
-                                          <span className="tree-node-icon" style={{ color: table.type === 'view' ? 'var(--color-info)' : 'var(--color-text-tertiary)' }}>
-                                            {table.type === 'view' ? <HiOutlineEye /> : <HiOutlineTable />}
+                                          <span
+                                            className="tree-node-icon"
+                                            style={{
+                                              color:
+                                                table.type === 'view'
+                                                  ? 'var(--color-info)'
+                                                  : 'var(--color-text-tertiary)',
+                                            }}
+                                          >
+                                            {table.type === 'view' ? (
+                                              <HiOutlineEye />
+                                            ) : (
+                                              <HiOutlineTable />
+                                            )}
                                           </span>
                                           <span className="tree-node-label">{table.name}</span>
                                         </button>
@@ -200,7 +254,10 @@ function Explorer() {
                                     );
                                   })}
                                   {tables.length === 0 && (
-                                    <div className="text-muted text-sm" style={{ padding: '8px 32px' }}>
+                                    <div
+                                      className="text-muted text-sm"
+                                      style={{ padding: '8px 32px' }}
+                                    >
                                       No tables found
                                     </div>
                                   )}
@@ -230,13 +287,16 @@ function Explorer() {
                   <div className="card-header">
                     <div>
                       <div className="card-title">
-                        {selectedTable.connName} / {selectedTable.schema} / {selectedTable.tableName}
+                        {selectedTable.connName} / {selectedTable.schema} /{' '}
+                        {selectedTable.tableName}
                       </div>
                       <div className="card-subtitle">{columns.length} columns</div>
                     </div>
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => navigate('/transfers', { state: { sourceTable: selectedTable } })}
+                      onClick={() =>
+                        navigate('/transfers', { state: { sourceTable: selectedTable } })
+                      }
                     >
                       Transfer This Table
                     </button>
@@ -290,10 +350,22 @@ function Explorer() {
                               <td>
                                 <span style={{ fontWeight: '600' }}>{col.name}</span>
                               </td>
-                              <td><span className="font-mono text-sm">{col.type}</span></td>
-                              <td>{col.nullable ? <span className="text-muted">Yes</span> : <span style={{ color: 'var(--color-warning)' }}>No</span>}</td>
                               <td>
-                                {col.is_primary_key && <span className="badge badge-warning"><HiOutlineKey /> PK</span>}
+                                <span className="font-mono text-sm">{col.type}</span>
+                              </td>
+                              <td>
+                                {col.nullable ? (
+                                  <span className="text-muted">Yes</span>
+                                ) : (
+                                  <span style={{ color: 'var(--color-warning)' }}>No</span>
+                                )}
+                              </td>
+                              <td>
+                                {col.is_primary_key && (
+                                  <span className="badge badge-warning">
+                                    <HiOutlineKey /> PK
+                                  </span>
+                                )}
                                 {col.is_foreign_key && <span className="badge badge-info">FK</span>}
                               </td>
                               <td className="text-muted font-mono text-sm">{col.default || '—'}</td>
@@ -304,15 +376,21 @@ function Explorer() {
                     </div>
                   )}
 
-                  {activeTab === 'preview' && (
-                    previewLoading ? (
-                      <div className="loading-overlay"><div className="spinner spinner-lg"></div></div>
+                  {activeTab === 'preview' &&
+                    (previewLoading ? (
+                      <div className="loading-overlay">
+                        <div className="spinner spinner-lg"></div>
+                      </div>
                     ) : preview ? (
                       <>
                         <div className="text-sm text-muted mb-4">
-                          Showing {preview.rows.length} of {preview.total_rows.toLocaleString()} rows
+                          Showing {preview.rows.length} of {preview.total_rows.toLocaleString()}{' '}
+                          rows
                         </div>
-                        <div className="data-table-wrapper" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                        <div
+                          className="data-table-wrapper"
+                          style={{ maxHeight: '500px', overflowY: 'auto' }}
+                        >
                           <table className="data-table">
                             <thead>
                               <tr>
@@ -325,7 +403,9 @@ function Explorer() {
                               {preview.rows.map((row, i) => (
                                 <tr key={i}>
                                   {row.map((cell, j) => (
-                                    <td key={j}>{cell ?? <span className="text-muted">NULL</span>}</td>
+                                    <td key={j}>
+                                      {cell ?? <span className="text-muted">NULL</span>}
+                                    </td>
                                   ))}
                                 </tr>
                               ))}
@@ -333,14 +413,15 @@ function Explorer() {
                           </table>
                         </div>
                       </>
-                    ) : null
-                  )}
+                    ) : null)}
                 </div>
               </>
             ) : (
               <div className="card">
                 <div className="empty-state">
-                  <div className="empty-state-icon"><HiOutlineSearch aria-hidden="true" /></div>
+                  <div className="empty-state-icon">
+                    <HiOutlineSearch aria-hidden="true" />
+                  </div>
                   <h3>Select a table</h3>
                   <p>Expand a connection in the tree to browse schemas, tables, and columns.</p>
                 </div>

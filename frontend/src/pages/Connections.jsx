@@ -11,7 +11,6 @@ import {
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineStatusOnline,
-  HiOutlineRefresh,
   HiOutlineDatabase,
 } from 'react-icons/hi';
 
@@ -22,17 +21,25 @@ function Connections() {
   const [editConn, setEditConn] = useState(null);
   const [testing, setTesting] = useState(null);
   const [form, setForm] = useState({
-    name: '', db_type: 'postgresql', host: '', port: 5432,
-    database_name: '', username: '', password: '', ssl_enabled: false,
+    name: '',
+    db_type: 'postgresql',
+    host: '',
+    port: 5432,
+    database_name: '',
+    username: '',
+    password: '',
+    ssl_enabled: false,
   });
 
-  useEffect(() => { loadConnections(); }, []);
+  useEffect(() => {
+    loadConnections();
+  }, []);
 
   const loadConnections = async () => {
     try {
       const res = await connectionsAPI.list();
       setConnections(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load connections');
     } finally {
       setLoading(false);
@@ -41,18 +48,33 @@ function Connections() {
 
   const resetForm = () => {
     setForm({
-      name: '', db_type: 'postgresql', host: '', port: 5432,
-      database_name: '', username: '', password: '', ssl_enabled: false,
+      name: '',
+      db_type: 'postgresql',
+      host: '',
+      port: 5432,
+      database_name: '',
+      username: '',
+      password: '',
+      ssl_enabled: false,
     });
     setEditConn(null);
   };
 
-  const openCreate = () => { resetForm(); setShowModal(true); };
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
 
   const openEdit = (conn) => {
     setForm({
-      name: conn.name, db_type: conn.db_type, host: conn.host, port: conn.port,
-      database_name: conn.database_name, username: conn.username, password: '', ssl_enabled: conn.ssl_enabled,
+      name: conn.name,
+      db_type: conn.db_type,
+      host: conn.host,
+      port: conn.port,
+      database_name: conn.database_name,
+      username: conn.username,
+      password: '',
+      ssl_enabled: conn.ssl_enabled,
     });
     setEditConn(conn);
     setShowModal(true);
@@ -83,7 +105,7 @@ function Connections() {
       await connectionsAPI.delete(id);
       toast.success('Connection deleted');
       loadConnections();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete connection');
     }
   };
@@ -98,7 +120,7 @@ function Connections() {
         toast.error(res.data.message);
       }
       loadConnections();
-    } catch (err) {
+    } catch {
       toast.error('Connection test failed');
     } finally {
       setTesting(null);
@@ -113,7 +135,9 @@ function Connections() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay"><div className="spinner spinner-lg"></div></div>
+        <div className="loading-overlay">
+          <div className="spinner spinner-lg"></div>
+        </div>
       </div>
     );
   }
@@ -133,7 +157,9 @@ function Connections() {
       {connections.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
+            <div className="empty-state-icon">
+              <HiOutlineDatabase aria-hidden="true" />
+            </div>
             <h3>No connections configured</h3>
             <p>Add your first database connection to start exploring and transferring data.</p>
             <button className="btn btn-primary" onClick={openCreate}>
@@ -186,8 +212,11 @@ function Connections() {
                 <button className="btn btn-ghost btn-sm" onClick={() => openEdit(conn)}>
                   <HiOutlinePencil /> Edit
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(conn.id)}
-                  style={{ color: 'var(--color-danger)' }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleDelete(conn.id)}
+                  style={{ color: 'var(--color-danger)' }}
+                >
                   <HiOutlineTrash />
                 </button>
               </div>
@@ -205,14 +234,28 @@ function Connections() {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">Connection Name</label>
-              <input className="form-input" value={form.name} placeholder="My Production DB"
-                onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <input
+                className="form-input"
+                value={form.name}
+                placeholder="My Production DB"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Database Type</label>
-              <select className="form-input form-select" value={form.db_type}
-                onChange={(e) => setForm({ ...form, db_type: e.target.value, port: e.target.value === 'postgresql' ? 5432 : 3306 })}
-                disabled={!!editConn}>
+              <select
+                className="form-input form-select"
+                value={form.db_type}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    db_type: e.target.value,
+                    port: e.target.value === 'postgresql' ? 5432 : 3306,
+                  })
+                }
+                disabled={!!editConn}
+              >
                 <option value="postgresql">PostgreSQL</option>
                 <option value="mysql">MySQL</option>
               </select>
@@ -220,43 +263,76 @@ function Connections() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Host</label>
-                <input className="form-input" value={form.host} placeholder="localhost"
-                  onChange={(e) => setForm({ ...form, host: e.target.value })} required />
+                <input
+                  className="form-input"
+                  value={form.host}
+                  placeholder="localhost"
+                  onChange={(e) => setForm({ ...form, host: e.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Port</label>
-                <input className="form-input" type="number" value={form.port}
-                  onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })} required />
+                <input
+                  className="form-input"
+                  type="number"
+                  value={form.port}
+                  onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
+                  required
+                />
               </div>
             </div>
             <div className="form-group">
               <label className="form-label">Database Name</label>
-              <input className="form-input" value={form.database_name} placeholder="mydb"
-                onChange={(e) => setForm({ ...form, database_name: e.target.value })} required />
+              <input
+                className="form-input"
+                value={form.database_name}
+                placeholder="mydb"
+                onChange={(e) => setForm({ ...form, database_name: e.target.value })}
+                required
+              />
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Username</label>
-                <input className="form-input" value={form.username} placeholder="postgres"
-                  onChange={(e) => setForm({ ...form, username: e.target.value })} required />
+                <input
+                  className="form-input"
+                  value={form.username}
+                  placeholder="postgres"
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>
-                <input className="form-input" type="password" value={form.password}
+                <input
+                  className="form-input"
+                  type="password"
+                  value={form.password}
                   placeholder={editConn ? '(unchanged)' : 'Enter password'}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required={!editConn} />
+                  required={!editConn}
+                />
               </div>
             </div>
             <label className="form-checkbox">
-              <input type="checkbox" checked={form.ssl_enabled}
-                onChange={(e) => setForm({ ...form, ssl_enabled: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={form.ssl_enabled}
+                onChange={(e) => setForm({ ...form, ssl_enabled: e.target.checked })}
+              />
               <span className="text-sm">Enable SSL</span>
             </label>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
               <button type="submit" className="btn btn-primary" id="btn-save-connection">
-            {editConn ? 'Update' : 'Create'} Connection
+                {editConn ? 'Update' : 'Create'} Connection
               </button>
             </div>
           </form>

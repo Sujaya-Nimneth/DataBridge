@@ -58,7 +58,12 @@ function Sidebar() {
   };
 
   const initials = user?.full_name
-    ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    ? user.full_name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
     : '?';
 
   return (
@@ -82,11 +87,7 @@ function Sidebar() {
       </header>
 
       {menuOpen && (
-        <div
-          className="sidebar-backdrop"
-          onClick={() => setMenuOpen(false)}
-          aria-hidden="true"
-        />
+        <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
       )}
 
       <aside
@@ -130,7 +131,9 @@ function Sidebar() {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar" aria-hidden="true">{initials}</div>
+            <div className="user-avatar" aria-hidden="true">
+              {initials}
+            </div>
             <div className="user-details">
               <div className="user-name">{user?.full_name}</div>
               <div className="user-role">{user?.role}</div>

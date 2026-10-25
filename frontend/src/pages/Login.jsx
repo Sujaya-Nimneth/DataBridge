@@ -29,7 +29,8 @@ function Login() {
         toast.success('Welcome back!');
       }
     } catch (err) {
-      const message = err.response?.data?.message || err.response?.data?.detail || 'Authentication failed';
+      const message =
+        err.response?.data?.message || err.response?.data?.detail || 'Authentication failed';
       toast.error(message);
     } finally {
       setLoading(false);
@@ -52,7 +53,9 @@ function Login() {
         <form onSubmit={handleSubmit}>
           {isRegister && (
             <div className="form-group">
-              <label className="form-label" htmlFor="input-fullname">Full Name</label>
+              <label className="form-label" htmlFor="input-fullname">
+                Full Name
+              </label>
               <input
                 id="input-fullname"
                 className="form-input"
@@ -66,7 +69,9 @@ function Login() {
           )}
 
           <div className="form-group">
-            <label className="form-label" htmlFor="input-email">Email Address</label>
+            <label className="form-label" htmlFor="input-email">
+              Email Address
+            </label>
             <input
               id="input-email"
               className="form-input"
@@ -79,7 +84,9 @@ function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="input-password">Password</label>
+            <label className="form-label" htmlFor="input-password">
+              Password
+            </label>
             <input
               id="input-password"
               className="form-input"

@@ -48,7 +48,7 @@ function Transfers() {
     loadData();
     if (location.state?.sourceTable) {
       const st = location.state.sourceTable;
-      setWizardForm(prev => ({
+      setWizardForm((prev) => ({
         ...prev,
         source_connection_id: st.connId,
         source_schema: st.schema,
@@ -57,28 +57,26 @@ function Transfers() {
       setShowWizard(true);
       setWizardStep(2);
     }
-  }, []);
+    // Deep-link prefill only needs to run when the navigation state changes.
+  }, [location.state?.sourceTable]);
 
   // Poll for running transfers
-  const hasRunning = transfers.some(t => t.status === 'running' || t.status === 'pending');
+  const hasRunning = transfers.some((t) => t.status === 'running' || t.status === 'pending');
   usePolling(
     async () => {
       const res = await transfersAPI.list();
       setTransfers(res.data);
     },
     5000,
-    hasRunning
+    hasRunning,
   );
 
   const loadData = async () => {
     try {
-      const [txRes, connRes] = await Promise.all([
-        transfersAPI.list(),
-        connectionsAPI.list(),
-      ]);
+      const [txRes, connRes] = await Promise.all([transfersAPI.list(), connectionsAPI.list()]);
       setTransfers(txRes.data);
       setConnections(connRes.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
@@ -126,9 +124,14 @@ function Transfers() {
       setShowWizard(false);
       setWizardStep(1);
       setWizardForm({
-        source_connection_id: '', source_schema: '', source_table: '',
-        target_connection_id: '', target_schema: '', target_table: '',
-        filter_query: '', create_target_table: true,
+        source_connection_id: '',
+        source_schema: '',
+        source_table: '',
+        target_connection_id: '',
+        target_schema: '',
+        target_table: '',
+        filter_query: '',
+        create_target_table: true,
       });
       loadData();
     } catch (err) {
@@ -155,7 +158,7 @@ function Transfers() {
       return jobRes.data;
     },
     3000,
-    Boolean(detailId) && detailIsLive
+    Boolean(detailId) && detailIsLive,
   );
 
   const cancelTransfer = async (id) => {
@@ -170,8 +173,11 @@ function Transfers() {
 
   const getStatusBadge = (status) => {
     const map = {
-      completed: 'badge-success', running: 'badge-primary', failed: 'badge-danger',
-      pending: 'badge-warning', cancelled: 'badge-neutral',
+      completed: 'badge-success',
+      running: 'badge-primary',
+      failed: 'badge-danger',
+      pending: 'badge-warning',
+      cancelled: 'badge-neutral',
     };
     return map[status] || 'badge-neutral';
   };
@@ -189,7 +195,9 @@ function Transfers() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay"><div className="spinner spinner-lg"></div></div>
+        <div className="loading-overlay">
+          <div className="spinner spinner-lg"></div>
+        </div>
       </div>
     );
   }
@@ -201,7 +209,14 @@ function Transfers() {
           <h1>Data Transfers</h1>
           <p>Move data between configured database connections</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowWizard(true); setWizardStep(1); }} id="btn-new-transfer">
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setShowWizard(true);
+            setWizardStep(1);
+          }}
+          id="btn-new-transfer"
+        >
           <HiOutlinePlus /> New Transfer
         </button>
       </div>
@@ -214,7 +229,9 @@ function Transfers() {
 
         {transfers.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon"><HiOutlineSwitchHorizontal aria-hidden="true" /></div>
+            <div className="empty-state-icon">
+              <HiOutlineSwitchHorizontal aria-hidden="true" />
+            </div>
             <h3>No transfers yet</h3>
             <p>Create your first data transfer to move data between databases.</p>
           </div>
@@ -234,16 +251,24 @@ function Transfers() {
               </thead>
               <tbody>
                 {transfers.map((tx) => {
-                  const progress = tx.total_rows ? Math.round((tx.transferred_rows / tx.total_rows) * 100) : 0;
+                  const progress = tx.total_rows
+                    ? Math.round((tx.transferred_rows / tx.total_rows) * 100)
+                    : 0;
                   return (
                     <tr key={tx.id}>
                       <td>
-                        <div className="transfer-endpoint-name">{tx.source_connection_name || 'Unknown'}</div>
+                        <div className="transfer-endpoint-name">
+                          {tx.source_connection_name || 'Unknown'}
+                        </div>
                         <div className="text-xs text-muted font-mono">{tx.source_table}</div>
                       </td>
-                      <td><HiOutlineArrowRight className="transfer-arrow" aria-hidden="true" /></td>
                       <td>
-                        <div className="transfer-endpoint-name">{tx.target_connection_name || 'Unknown'}</div>
+                        <HiOutlineArrowRight className="transfer-arrow" aria-hidden="true" />
+                      </td>
+                      <td>
+                        <div className="transfer-endpoint-name">
+                          {tx.target_connection_name || 'Unknown'}
+                        </div>
                         <div className="text-xs text-muted font-mono">{tx.target_table}</div>
                       </td>
                       <td>
@@ -256,27 +281,43 @@ function Transfers() {
                         {tx.status === 'running' ? (
                           <div>
                             <div className="progress-bar progress-bar-spaced">
-                              <div className="progress-fill animated" style={{ width: `${progress}%` }}></div>
+                              <div
+                                className="progress-fill animated"
+                                style={{ width: `${progress}%` }}
+                              ></div>
                             </div>
                             <div className="text-xs text-muted">
-                              {tx.transferred_rows?.toLocaleString()} / {tx.total_rows?.toLocaleString() || '?'} rows
+                              {tx.transferred_rows?.toLocaleString()} /{' '}
+                              {tx.total_rows?.toLocaleString() || '?'} rows
                             </div>
                           </div>
                         ) : tx.status === 'completed' ? (
-                          <span className="text-sm">{tx.transferred_rows?.toLocaleString()} rows</span>
+                          <span className="text-sm">
+                            {tx.transferred_rows?.toLocaleString()} rows
+                          </span>
                         ) : (
                           <span className="text-muted text-sm">—</span>
                         )}
                       </td>
-                      <td className="text-sm text-muted">{formatDuration(tx.started_at, tx.completed_at)}</td>
+                      <td className="text-sm text-muted">
+                        {formatDuration(tx.started_at, tx.completed_at)}
+                      </td>
                       <td>
                         <div className="flex gap-2">
-                          <button className="btn btn-ghost btn-sm" onClick={() => viewDetail(tx)} title="View details">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => viewDetail(tx)}
+                            title="View details"
+                          >
                             <HiOutlineEye />
                           </button>
                           {(tx.status === 'running' || tx.status === 'pending') && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => cancelTransfer(tx.id)}
-                              style={{ color: 'var(--color-danger)' }} title="Cancel">
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => cancelTransfer(tx.id)}
+                              style={{ color: 'var(--color-danger)' }}
+                              title="Cancel"
+                            >
                               <HiOutlineStop />
                             </button>
                           )}
@@ -297,272 +338,371 @@ function Transfers() {
           title="New Transfer"
           maxWidth="600px"
           onClose={() => setShowWizard(false)}
-          footer={(
+          footer={
             <>
               {wizardStep > 1 && (
-                <button type="button" className="btn btn-secondary" onClick={() => setWizardStep(s => s - 1)}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setWizardStep((s) => s - 1)}
+                >
                   Back
                 </button>
               )}
               <div style={{ flex: 1 }}></div>
               {wizardStep < 4 ? (
-                <button type="button" className="btn btn-primary" onClick={() => {
-                  if (wizardStep === 1 && (!wizardForm.source_connection_id || !wizardForm.source_table)) {
-                    toast.error('Please select source connection and table');
-                    return;
-                  }
-                  if (wizardStep === 2 && !wizardForm.target_connection_id) {
-                    toast.error('Please select target connection');
-                    return;
-                  }
-                  if (wizardStep === 2 && !wizardForm.target_table) {
-                    setWizardForm(prev => ({ ...prev, target_table: prev.source_table }));
-                  }
-                  setWizardStep(s => s + 1);
-                }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (
+                      wizardStep === 1 &&
+                      (!wizardForm.source_connection_id || !wizardForm.source_table)
+                    ) {
+                      toast.error('Please select source connection and table');
+                      return;
+                    }
+                    if (wizardStep === 2 && !wizardForm.target_connection_id) {
+                      toast.error('Please select target connection');
+                      return;
+                    }
+                    if (wizardStep === 2 && !wizardForm.target_table) {
+                      setWizardForm((prev) => ({ ...prev, target_table: prev.source_table }));
+                    }
+                    setWizardStep((s) => s + 1);
+                  }}
+                >
                   Next
                 </button>
               ) : (
-                <button type="button" className="btn btn-success" onClick={handleCreateTransfer} id="btn-start-transfer">
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={handleCreateTransfer}
+                  id="btn-start-transfer"
+                >
                   <HiOutlinePlay /> Start Transfer
                 </button>
               )}
             </>
-          )}
+          }
         >
-              {/* Wizard Steps Indicator */}
-              <div className="wizard-steps wizard-steps-spaced">
-                {['Source', 'Target', 'Options', 'Review'].map((label, i) => {
-                  const stepNum = i + 1;
-                  const isActive = wizardStep === stepNum;
-                  const isCompleted = wizardStep > stepNum;
-                  return (
-                    <div key={label} className="wizard-step-group">
-                      <div className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
-                        <div className="wizard-step-number">{isCompleted ? '✓' : stepNum}</div>
-                        <span className="wizard-step-label">{label}</span>
-                      </div>
-                      {i < 3 && <div className={`wizard-connector ${isCompleted ? 'completed' : ''}`}></div>}
-                    </div>
-                  );
-                })}
+          {/* Wizard Steps Indicator */}
+          <div className="wizard-steps wizard-steps-spaced">
+            {['Source', 'Target', 'Options', 'Review'].map((label, i) => {
+              const stepNum = i + 1;
+              const isActive = wizardStep === stepNum;
+              const isCompleted = wizardStep > stepNum;
+              return (
+                <div key={label} className="wizard-step-group">
+                  <div
+                    className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                  >
+                    <div className="wizard-step-number">{isCompleted ? '✓' : stepNum}</div>
+                    <span className="wizard-step-label">{label}</span>
+                  </div>
+                  {i < 3 && (
+                    <div className={`wizard-connector ${isCompleted ? 'completed' : ''}`}></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Step 1: Source */}
+          {wizardStep === 1 && (
+            <div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wizard-source-connection">
+                  Source Connection
+                </label>
+                <select
+                  id="wizard-source-connection"
+                  className="form-input form-select"
+                  value={wizardForm.source_connection_id}
+                  onChange={(e) => {
+                    const connId = e.target.value;
+                    setWizardForm((prev) => ({
+                      ...prev,
+                      source_connection_id: connId,
+                      source_schema: '',
+                      source_table: '',
+                    }));
+                    setSourceTables([]);
+                    loadSchemas(connId, setSourceSchemas);
+                  }}
+                >
+                  <option value="">Select a connection</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.db_type})
+                    </option>
+                  ))}
+                </select>
               </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wizard-source-schema">
+                  Source Schema
+                </label>
+                <select
+                  id="wizard-source-schema"
+                  className="form-input form-select"
+                  value={wizardForm.source_schema}
+                  disabled={!wizardForm.source_connection_id}
+                  onChange={(e) => {
+                    const schema = e.target.value;
+                    setWizardForm((prev) => ({ ...prev, source_schema: schema, source_table: '' }));
+                    loadTables(wizardForm.source_connection_id, schema, setSourceTables);
+                  }}
+                >
+                  <option value="">Default schema</option>
+                  {sourceSchemas.map((schema) => (
+                    <option key={schema.name} value={schema.name}>
+                      {schema.name} ({schema.table_count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wizard-source-table">
+                  Source Table
+                </label>
+                <select
+                  id="wizard-source-table"
+                  className="form-input form-select"
+                  value={wizardForm.source_table}
+                  disabled={tablesLoading || sourceTables.length === 0}
+                  onChange={(e) =>
+                    setWizardForm((prev) => ({ ...prev, source_table: e.target.value }))
+                  }
+                >
+                  <option value="">
+                    {tablesLoading
+                      ? 'Loading tables…'
+                      : sourceTables.length === 0
+                        ? 'Select a schema first'
+                        : 'Select a table'}
+                  </option>
+                  {sourceTables.map((t) => (
+                    <option key={`${t.schema_name}.${t.name}`} value={t.name}>
+                      {t.name}
+                      {t.type === 'view' ? ' (view)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
-              {/* Step 1: Source */}
-              {wizardStep === 1 && (
-                <div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-source-connection">Source Connection</label>
-                    <select id="wizard-source-connection" className="form-input form-select" value={wizardForm.source_connection_id}
-                      onChange={(e) => {
-                        const connId = e.target.value;
-                        setWizardForm(prev => ({
-                          ...prev,
-                          source_connection_id: connId,
-                          source_schema: '',
-                          source_table: '',
-                        }));
-                        setSourceTables([]);
-                        loadSchemas(connId, setSourceSchemas);
-                      }}>
-                      <option value="">Select a connection</option>
-                      {connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.db_type})</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-source-schema">Source Schema</label>
-                    <select id="wizard-source-schema" className="form-input form-select"
-                      value={wizardForm.source_schema}
-                      disabled={!wizardForm.source_connection_id}
-                      onChange={(e) => {
-                        const schema = e.target.value;
-                        setWizardForm(prev => ({ ...prev, source_schema: schema, source_table: '' }));
-                        loadTables(wizardForm.source_connection_id, schema, setSourceTables);
-                      }}>
-                      <option value="">Default schema</option>
-                      {sourceSchemas.map(schema => (
-                        <option key={schema.name} value={schema.name}>
-                          {schema.name} ({schema.table_count})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-source-table">Source Table</label>
-                    <select id="wizard-source-table" className="form-input form-select" value={wizardForm.source_table}
-                      disabled={tablesLoading || sourceTables.length === 0}
-                      onChange={(e) => setWizardForm(prev => ({ ...prev, source_table: e.target.value }))}>
-                      <option value="">
-                        {tablesLoading ? 'Loading tables…' : sourceTables.length === 0
-                          ? 'Select a schema first'
-                          : 'Select a table'}
-                      </option>
-                      {sourceTables.map(t => (
-                        <option key={`${t.schema_name}.${t.name}`} value={t.name}>
-                          {t.name}{t.type === 'view' ? ' (view)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+          {/* Step 2: Target */}
+          {wizardStep === 2 && (
+            <div>
+              <div className="form-group">
+                <label className="form-label">Target Connection</label>
+                <select
+                  className="form-input form-select"
+                  value={wizardForm.target_connection_id}
+                  onChange={(e) => {
+                    const connId = e.target.value;
+                    setWizardForm((prev) => ({
+                      ...prev,
+                      target_connection_id: connId,
+                      target_schema: '',
+                    }));
+                    loadSchemas(connId, setTargetSchemas);
+                  }}
+                >
+                  <option value="">Select a connection</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.db_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wizard-target-schema">
+                  Target Schema
+                </label>
+                <select
+                  id="wizard-target-schema"
+                  className="form-input form-select"
+                  value={wizardForm.target_schema}
+                  disabled={!wizardForm.target_connection_id}
+                  onChange={(e) =>
+                    setWizardForm((prev) => ({ ...prev, target_schema: e.target.value }))
+                  }
+                >
+                  <option value="">Default schema</option>
+                  {targetSchemas.map((schema) => (
+                    <option key={schema.name} value={schema.name}>
+                      {schema.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wizard-target-table">
+                  Target Table Name
+                </label>
+                <input
+                  id="wizard-target-table"
+                  className="form-input"
+                  value={wizardForm.target_table}
+                  placeholder={wizardForm.source_table || 'Enter table name'}
+                  onChange={(e) =>
+                    setWizardForm((prev) => ({ ...prev, target_table: e.target.value }))
+                  }
+                />
+                <div className="text-xs text-muted" style={{ marginTop: '4px' }}>
+                  Leave empty to use the same name as source. The table will be auto-created if it
+                  doesn&apos;t exist.
                 </div>
-              )}
+              </div>
+            </div>
+          )}
 
-              {/* Step 2: Target */}
-              {wizardStep === 2 && (
-                <div>
-                  <div className="form-group">
-                    <label className="form-label">Target Connection</label>
-                    <select className="form-input form-select" value={wizardForm.target_connection_id}
-                      onChange={(e) => {
-                        const connId = e.target.value;
-                        setWizardForm(prev => ({
-                          ...prev,
-                          target_connection_id: connId,
-                          target_schema: '',
-                        }));
-                        loadSchemas(connId, setTargetSchemas);
-                      }}>
-                      <option value="">Select a connection</option>
-                      {connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.db_type})</option>)}
-                    </select>
+          {/* Step 3: Options */}
+          {wizardStep === 3 && (
+            <div>
+              <div className="form-group">
+                <label className="form-label">Filter (Optional SQL WHERE clause)</label>
+                <input
+                  className="form-input font-mono"
+                  value={wizardForm.filter_query}
+                  placeholder="e.g. status = 'active' AND created_at > '2024-01-01'"
+                  onChange={(e) =>
+                    setWizardForm((prev) => ({ ...prev, filter_query: e.target.value }))
+                  }
+                />
+              </div>
+              <label className="form-checkbox">
+                <input
+                  type="checkbox"
+                  checked={wizardForm.create_target_table}
+                  onChange={(e) =>
+                    setWizardForm((prev) => ({ ...prev, create_target_table: e.target.checked }))
+                  }
+                />
+                <span className="text-sm">Auto-create target table if it doesn&apos;t exist</span>
+              </label>
+            </div>
+          )}
+
+          {/* Step 4: Review */}
+          {wizardStep === 4 && (
+            <div>
+              <div className="transfer-summary">
+                <div className="transfer-summary-grid">
+                  <div>
+                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
+                      SOURCE
+                    </div>
+                    <div className="font-semibold">
+                      {connections.find((c) => c.id === wizardForm.source_connection_id)?.name ||
+                        '—'}
+                    </div>
+                    <div className="font-mono text-sm text-muted">{wizardForm.source_table}</div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-target-schema">Target Schema</label>
-                    <select id="wizard-target-schema" className="form-input form-select"
-                      value={wizardForm.target_schema}
-                      disabled={!wizardForm.target_connection_id}
-                      onChange={(e) => setWizardForm(prev => ({ ...prev, target_schema: e.target.value }))}>
-                      <option value="">Default schema</option>
-                      {targetSchemas.map(schema => (
-                        <option key={schema.name} value={schema.name}>{schema.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-target-table">Target Table Name</label>
-                    <input id="wizard-target-table" className="form-input" value={wizardForm.target_table}
-                      placeholder={wizardForm.source_table || 'Enter table name'}
-                      onChange={(e) => setWizardForm(prev => ({ ...prev, target_table: e.target.value }))} />
-                    <div className="text-xs text-muted" style={{ marginTop: '4px' }}>
-                      Leave empty to use the same name as source. The table will be auto-created if it doesn't exist.
+                  <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
+                  <div>
+                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
+                      TARGET
+                    </div>
+                    <div className="font-semibold">
+                      {connections.find((c) => c.id === wizardForm.target_connection_id)?.name ||
+                        '—'}
+                    </div>
+                    <div className="font-mono text-sm text-muted">
+                      {wizardForm.target_table || wizardForm.source_table}
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* Step 3: Options */}
-              {wizardStep === 3 && (
-                <div>
-                  <div className="form-group">
-                    <label className="form-label">Filter (Optional SQL WHERE clause)</label>
-                    <input className="form-input font-mono" value={wizardForm.filter_query}
-                      placeholder="e.g. status = 'active' AND created_at > '2024-01-01'"
-                      onChange={(e) => setWizardForm(prev => ({ ...prev, filter_query: e.target.value }))} />
-                  </div>
-                  <label className="form-checkbox">
-                    <input type="checkbox" checked={wizardForm.create_target_table}
-                      onChange={(e) => setWizardForm(prev => ({ ...prev, create_target_table: e.target.checked }))} />
-                    <span className="text-sm">Auto-create target table if it doesn't exist</span>
-                  </label>
-                </div>
-              )}
-
-              {/* Step 4: Review */}
-              {wizardStep === 4 && (
-                <div>
-                  <div className="transfer-summary">
-                    <div className="transfer-summary-grid">
-                      <div>
-                        <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>SOURCE</div>
-                        <div className="font-semibold">
-                          {connections.find(c => c.id === wizardForm.source_connection_id)?.name || '—'}
-                        </div>
-                        <div className="font-mono text-sm text-muted">{wizardForm.source_table}</div>
-                      </div>
-                      <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
-                      <div>
-                        <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>TARGET</div>
-                        <div className="font-semibold">
-                          {connections.find(c => c.id === wizardForm.target_connection_id)?.name || '—'}
-                        </div>
-                        <div className="font-mono text-sm text-muted">
-                          {wizardForm.target_table || wizardForm.source_table}
-                        </div>
-                      </div>
+                {wizardForm.filter_query && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      paddingTop: '16px',
+                      borderTop: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <div className="text-xs text-muted">FILTER</div>
+                    <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
+                      {wizardForm.filter_query}
                     </div>
-                    {wizardForm.filter_query && (
-                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-                        <div className="text-xs text-muted">FILTER</div>
-                        <div className="font-mono text-sm" style={{ marginTop: '4px' }}>{wizardForm.filter_query}</div>
-                      </div>
-                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 
       {/* Transfer Detail Modal */}
       {showDetail && (
-        <Modal
-          title="Transfer Details"
-          maxWidth="700px"
-          onClose={() => setShowDetail(null)}
-        >
-              <div className="transfer-summary-grid mb-6">
-                <div>
-                  <div className="text-xs text-muted">SOURCE</div>
-                  <div className="font-semibold">{showDetail.source_connection_name}</div>
-                  <div className="font-mono text-sm text-muted">{showDetail.source_table}</div>
-                </div>
-                <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
-                <div>
-                  <div className="text-xs text-muted">TARGET</div>
-                  <div className="font-semibold">{showDetail.target_connection_name}</div>
-                  <div className="font-mono text-sm text-muted">{showDetail.target_table}</div>
-                </div>
+        <Modal title="Transfer Details" maxWidth="700px" onClose={() => setShowDetail(null)}>
+          <div className="transfer-summary-grid mb-6">
+            <div>
+              <div className="text-xs text-muted">SOURCE</div>
+              <div className="font-semibold">{showDetail.source_connection_name}</div>
+              <div className="font-mono text-sm text-muted">{showDetail.source_table}</div>
+            </div>
+            <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
+            <div>
+              <div className="text-xs text-muted">TARGET</div>
+              <div className="font-semibold">{showDetail.target_connection_name}</div>
+              <div className="font-mono text-sm text-muted">{showDetail.target_table}</div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mb-4">
+            <span className={`badge ${getStatusBadge(showDetail.status)}`}>
+              <span className="badge-dot"></span>
+              {showDetail.status}
+            </span>
+            <span className="text-sm text-muted">
+              {showDetail.transferred_rows?.toLocaleString()} /{' '}
+              {showDetail.total_rows?.toLocaleString() || '?'} rows
+            </span>
+            <span className="text-sm text-muted">
+              Duration: {formatDuration(showDetail.started_at, showDetail.completed_at)}
+            </span>
+          </div>
+
+          {showDetail.status === 'running' && showDetail.total_rows && (
+            <div className="progress-bar mb-4" style={{ height: '8px' }}>
+              <div
+                className="progress-fill animated"
+                style={{
+                  width: `${Math.round((showDetail.transferred_rows / showDetail.total_rows) * 100)}%`,
+                }}
+              ></div>
+            </div>
+          )}
+
+          {showDetail.error_message && (
+            <div className="alert alert-danger mb-4">
+              <div className="text-sm font-bold text-danger mb-4">Error</div>
+              <div className="text-sm font-mono">{showDetail.error_message}</div>
+            </div>
+          )}
+
+          <div className="card-title mb-4">Execution Logs</div>
+          <div className="log-viewer">
+            {detailLogs.length === 0 ? (
+              <div className="text-muted text-sm" style={{ padding: '20px', textAlign: 'center' }}>
+                No logs available
               </div>
-
-              <div className="flex gap-3 mb-4">
-                <span className={`badge ${getStatusBadge(showDetail.status)}`}>
-                  <span className="badge-dot"></span>{showDetail.status}
-                </span>
-                <span className="text-sm text-muted">
-                  {showDetail.transferred_rows?.toLocaleString()} / {showDetail.total_rows?.toLocaleString() || '?'} rows
-                </span>
-                <span className="text-sm text-muted">
-                  Duration: {formatDuration(showDetail.started_at, showDetail.completed_at)}
-                </span>
-              </div>
-
-              {showDetail.status === 'running' && showDetail.total_rows && (
-                <div className="progress-bar mb-4" style={{ height: '8px' }}>
-                  <div className="progress-fill animated"
-                    style={{ width: `${Math.round((showDetail.transferred_rows / showDetail.total_rows) * 100)}%` }}></div>
+            ) : (
+              detailLogs.map((log) => (
+                <div key={log.id} className="log-entry">
+                  <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  <span className={`log-level ${log.level}`}>{log.level}</span>
+                  <span className="log-message">{log.message}</span>
                 </div>
-              )}
-
-              {showDetail.error_message && (
-                <div className="alert alert-danger mb-4">
-                  <div className="text-sm font-bold text-danger mb-4">Error</div>
-                  <div className="text-sm font-mono">{showDetail.error_message}</div>
-                </div>
-              )}
-
-              <div className="card-title mb-4">Execution Logs</div>
-              <div className="log-viewer">
-                {detailLogs.length === 0 ? (
-                  <div className="text-muted text-sm" style={{ padding: '20px', textAlign: 'center' }}>No logs available</div>
-                ) : (
-                  detailLogs.map((log) => (
-                    <div key={log.id} className="log-entry">
-                      <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                      <span className={`log-level ${log.level}`}>{log.level}</span>
-                      <span className="log-message">{log.message}</span>
-                    </div>
-                  ))
-                )}
-              </div>
+              ))
+            )}
+          </div>
         </Modal>
       )}
     </div>

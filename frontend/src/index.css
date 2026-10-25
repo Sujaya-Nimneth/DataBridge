@@ -161,9 +161,15 @@ body::before {
 }
 
 @keyframes meshShift {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 a {
@@ -220,8 +226,14 @@ a:hover {
 }
 
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ============================================================
@@ -421,8 +433,15 @@ a:hover {
 }
 
 @keyframes navPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0);
+  }
 }
 
 .nav-item-icon {
@@ -595,16 +614,34 @@ a:hover {
 }
 
 /* Staggered entrance for stat cards */
-.stats-grid .stat-card:nth-child(1) { animation-delay: 0ms; }
-.stats-grid .stat-card:nth-child(2) { animation-delay: 60ms; }
-.stats-grid .stat-card:nth-child(3) { animation-delay: 120ms; }
-.stats-grid .stat-card:nth-child(4) { animation-delay: 180ms; }
-.stats-grid .stat-card:nth-child(5) { animation-delay: 240ms; }
-.stats-grid .stat-card:nth-child(6) { animation-delay: 300ms; }
+.stats-grid .stat-card:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stats-grid .stat-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stats-grid .stat-card:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stats-grid .stat-card:nth-child(4) {
+  animation-delay: 180ms;
+}
+.stats-grid .stat-card:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stats-grid .stat-card:nth-child(6) {
+  animation-delay: 300ms;
+}
 
 @keyframes staggerIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .stat-card::before {
@@ -622,7 +659,9 @@ a:hover {
 .stat-card:hover {
   border-color: var(--color-border-hover);
   transform: translateY(-3px);
-  box-shadow: var(--shadow-lg), 0 0 30px rgba(245, 158, 11, 0.06);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 30px rgba(245, 158, 11, 0.06);
 }
 
 .stat-card:hover::before {
@@ -807,7 +846,9 @@ a:hover {
 
 .form-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-glow), var(--shadow-glow);
+  box-shadow:
+    0 0 0 3px var(--color-primary-glow),
+    var(--shadow-glow);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -982,7 +1023,7 @@ a:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   animation: shimmer 2s infinite;
 }
 
@@ -1001,8 +1042,12 @@ a:hover {
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* ============================================================
@@ -1023,8 +1068,12 @@ a:hover {
 }
 
 @keyframes overlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
@@ -1035,7 +1084,9 @@ a:hover {
   max-width: 540px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-xl), 0 0 60px rgba(245, 158, 11, 0.05);
+  box-shadow:
+    var(--shadow-xl),
+    0 0 60px rgba(245, 158, 11, 0.05);
   animation: modalSpring 0.4s var(--transition-spring) both;
   position: relative;
 }
@@ -1053,8 +1104,14 @@ a:hover {
 }
 
 @keyframes modalSpring {
-  from { opacity: 0; transform: translateY(24px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-header {
@@ -1431,8 +1488,12 @@ a:hover {
 }
 
 @keyframes orbFloat {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(30px, -30px) scale(1.1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
 }
 
 .login-card {
@@ -1444,7 +1505,9 @@ a:hover {
   max-width: 440px;
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  box-shadow: var(--shadow-xl), 0 0 60px rgba(245, 158, 11, 0.04);
+  box-shadow:
+    var(--shadow-xl),
+    0 0 60px rgba(245, 158, 11, 0.04);
   position: relative;
   z-index: 1;
   animation: loginCardIn 0.6s ease-out;
@@ -1463,8 +1526,14 @@ a:hover {
 }
 
 @keyframes loginCardIn {
-  from { opacity: 0; transform: translateY(32px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .login-header {
@@ -1489,8 +1558,14 @@ a:hover {
 }
 
 @keyframes logoGlow {
-  from { box-shadow: 0 0 20px rgba(245, 158, 11, 0.2); }
-  to { box-shadow: 0 0 40px rgba(245, 158, 11, 0.35), 0 0 80px rgba(20, 184, 166, 0.1); }
+  from {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+  }
+  to {
+    box-shadow:
+      0 0 40px rgba(245, 158, 11, 0.35),
+      0 0 80px rgba(20, 184, 166, 0.1);
+  }
 }
 
 .login-header h1 {
@@ -1664,9 +1739,15 @@ a:hover {
   text-transform: uppercase;
 }
 
-.log-level.info { color: var(--color-primary-light); }
-.log-level.warning { color: var(--color-warning); }
-.log-level.error { color: var(--color-danger); }
+.log-level.info {
+  color: var(--color-primary-light);
+}
+.log-level.warning {
+  color: var(--color-warning);
+}
+.log-level.error {
+  color: var(--color-danger);
+}
 
 .log-message {
   color: var(--color-text-primary);
@@ -1692,7 +1773,9 @@ a:hover {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-overlay {
@@ -1784,29 +1867,79 @@ a:hover {
 /* ============================================================
    Utilities
    ============================================================ */
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.text-muted { color: var(--color-text-tertiary); }
-.text-sm { font-size: 13px; }
-.text-xs { font-size: 12px; }
-.font-mono { font-family: var(--font-mono); }
-.font-bold { font-weight: 700; }
-.mt-4 { margin-top: 16px; }
-.mt-6 { margin-top: 24px; }
-.mb-4 { margin-bottom: 16px; }
-.mb-6 { margin-bottom: 24px; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.gap-4 { gap: 16px; }
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.flex-1 { flex: 1; }
-.flex-wrap { flex-wrap: wrap; }
-.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
-.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.w-full { width: 100%; }
+.text-center {
+  text-align: center;
+}
+.text-right {
+  text-align: right;
+}
+.text-muted {
+  color: var(--color-text-tertiary);
+}
+.text-sm {
+  font-size: 13px;
+}
+.text-xs {
+  font-size: 12px;
+}
+.font-mono {
+  font-family: var(--font-mono);
+}
+.font-bold {
+  font-weight: 700;
+}
+.mt-4 {
+  margin-top: 16px;
+}
+.mt-6 {
+  margin-top: 24px;
+}
+.mb-4 {
+  margin-bottom: 16px;
+}
+.mb-6 {
+  margin-bottom: 24px;
+}
+.gap-2 {
+  gap: 8px;
+}
+.gap-3 {
+  gap: 12px;
+}
+.gap-4 {
+  gap: 16px;
+}
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.flex-1 {
+  flex: 1;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.w-full {
+  width: 100%;
+}
 
 /* ============================================================
    Bar chart (Monitoring)
@@ -1898,7 +2031,9 @@ a:hover {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .tree-node-button:hover {

@@ -22,7 +22,9 @@ function Monitoring() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const loadAll = async () => {
     setLoading(true);
@@ -37,7 +39,7 @@ function Monitoring() {
       setMetrics(metricsRes.data);
       setConnStatuses(connRes.data);
       setActivity(activityRes.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load monitoring data');
     } finally {
       setLoading(false);
@@ -46,8 +48,12 @@ function Monitoring() {
 
   const getStatusBadge = (status) => {
     const map = {
-      completed: 'badge-success', running: 'badge-primary', failed: 'badge-danger',
-      pending: 'badge-warning', cancelled: 'badge-neutral', success: 'badge-success',
+      completed: 'badge-success',
+      running: 'badge-primary',
+      failed: 'badge-danger',
+      pending: 'badge-warning',
+      cancelled: 'badge-neutral',
+      success: 'badge-success',
       unknown: 'badge-neutral',
     };
     return map[status] || 'badge-neutral';
@@ -61,13 +67,15 @@ function Monitoring() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay"><div className="spinner spinner-lg"></div></div>
+        <div className="loading-overlay">
+          <div className="spinner spinner-lg"></div>
+        </div>
       </div>
     );
   }
 
   const maxDailyCount = metrics?.daily_transfers
-    ? Math.max(...metrics.daily_transfers.map(d => d.count), 1)
+    ? Math.max(...metrics.daily_transfers.map((d) => d.count), 1)
     : 1;
 
   return (
@@ -108,17 +116,23 @@ function Monitoring() {
           {/* Key Metrics */}
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-card-icon primary"><HiOutlineChartBar /></div>
+              <div className="stat-card-icon primary">
+                <HiOutlineChartBar />
+              </div>
               <div className="stat-value">{stats?.total_transfers || 0}</div>
               <div className="stat-label">Total Transfers</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon success"><HiOutlineCheckCircle aria-hidden="true" /></div>
+              <div className="stat-card-icon success">
+                <HiOutlineCheckCircle aria-hidden="true" />
+              </div>
               <div className="stat-value">{stats?.success_rate || 0}%</div>
               <div className="stat-label">Success Rate</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon info"><HiOutlineClock /></div>
+              <div className="stat-card-icon info">
+                <HiOutlineClock />
+              </div>
               <div className="stat-value">
                 {metrics?.average_duration_seconds
                   ? `${Math.round(metrics.average_duration_seconds)}s`
@@ -127,8 +141,12 @@ function Monitoring() {
               <div className="stat-label">Avg Duration</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon warning"><HiOutlineChartBar aria-hidden="true" /></div>
-              <div className="stat-value">{stats?.total_rows_transferred?.toLocaleString() || 0}</div>
+              <div className="stat-card-icon warning">
+                <HiOutlineChartBar aria-hidden="true" />
+              </div>
+              <div className="stat-value">
+                {stats?.total_rows_transferred?.toLocaleString() || 0}
+              </div>
               <div className="stat-label">Total Rows Moved</div>
             </div>
           </div>
@@ -140,32 +158,43 @@ function Monitoring() {
                 <div className="card-title">Transfer Status Distribution</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {metrics?.status_counts && Object.entries(metrics.status_counts).map(([status, count]) => {
-                  const total = Object.values(metrics.status_counts).reduce((a, b) => a + b, 0);
-                  const pct = total > 0 ? (count / total * 100) : 0;
-                  return (
-                    <div key={status}>
-                      <div className="flex justify-between items-center mb-4" style={{ marginBottom: '6px' }}>
-                        <span className={`badge ${getStatusBadge(status)}`}>
-                          <span className="badge-dot"></span>{status}
-                        </span>
-                        <span className="text-sm">{count} ({Math.round(pct)}%)</span>
-                      </div>
-                      <div className="progress-bar" style={{ height: '4px' }}>
+                {metrics?.status_counts &&
+                  Object.entries(metrics.status_counts).map(([status, count]) => {
+                    const total = Object.values(metrics.status_counts).reduce((a, b) => a + b, 0);
+                    const pct = total > 0 ? (count / total) * 100 : 0;
+                    return (
+                      <div key={status}>
                         <div
-                          className="progress-fill"
-                          style={{
-                            width: `${pct}%`,
-                            background: status === 'completed' ? 'var(--color-success)' :
-                              status === 'failed' ? 'var(--color-danger)' :
-                              status === 'running' ? 'var(--color-primary)' :
-                              'var(--color-text-muted)',
-                          }}
-                        ></div>
+                          className="flex justify-between items-center mb-4"
+                          style={{ marginBottom: '6px' }}
+                        >
+                          <span className={`badge ${getStatusBadge(status)}`}>
+                            <span className="badge-dot"></span>
+                            {status}
+                          </span>
+                          <span className="text-sm">
+                            {count} ({Math.round(pct)}%)
+                          </span>
+                        </div>
+                        <div className="progress-bar" style={{ height: '4px' }}>
+                          <div
+                            className="progress-fill"
+                            style={{
+                              width: `${pct}%`,
+                              background:
+                                status === 'completed'
+                                  ? 'var(--color-success)'
+                                  : status === 'failed'
+                                    ? 'var(--color-danger)'
+                                    : status === 'running'
+                                      ? 'var(--color-primary)'
+                                      : 'var(--color-text-muted)',
+                            }}
+                          ></div>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
 
@@ -180,9 +209,8 @@ function Monitoring() {
                 aria-label={`Transfers per day over the last 7 days. Peak ${maxDailyCount}.`}
               >
                 {metrics?.daily_transfers?.map((day) => {
-                  const heightPct = maxDailyCount > 0
-                    ? Math.max((day.count / maxDailyCount) * 100, 3)
-                    : 3;
+                  const heightPct =
+                    maxDailyCount > 0 ? Math.max((day.count / maxDailyCount) * 100, 3) : 3;
                   const label = new Date(day.date).toLocaleDateString('en', {
                     weekday: 'short',
                   });
@@ -213,7 +241,9 @@ function Monitoring() {
           </div>
           {connStatuses.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><HiOutlineDatabase aria-hidden="true" /></div>
+              <div className="empty-state-icon">
+                <HiOutlineDatabase aria-hidden="true" />
+              </div>
               <h3>No connections configured</h3>
             </div>
           ) : (
@@ -233,13 +263,16 @@ function Monitoring() {
                     <tr key={conn.id}>
                       <td style={{ fontWeight: 600 }}>{conn.name}</td>
                       <td>
-                        <span className={`badge ${conn.db_type === 'postgresql' ? 'badge-primary' : 'badge-info'}`}>
+                        <span
+                          className={`badge ${conn.db_type === 'postgresql' ? 'badge-primary' : 'badge-info'}`}
+                        >
                           {conn.db_type}
                         </span>
                       </td>
                       <td>
                         <span className={`badge ${getStatusBadge(conn.status)}`}>
-                          <span className="badge-dot"></span>{conn.status}
+                          <span className="badge-dot"></span>
+                          {conn.status}
                         </span>
                       </td>
                       <td className="text-sm text-muted">{formatTime(conn.last_tested_at)}</td>
@@ -261,7 +294,9 @@ function Monitoring() {
           </div>
           {activity.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><HiOutlineClipboardList aria-hidden="true" /></div>
+              <div className="empty-state-icon">
+                <HiOutlineClipboardList aria-hidden="true" />
+              </div>
               <h3>No activity recorded</h3>
             </div>
           ) : (
@@ -281,7 +316,8 @@ function Monitoring() {
                       <td>{item.description}</td>
                       <td>
                         <span className={`badge ${getStatusBadge(item.status)}`}>
-                          <span className="badge-dot"></span>{item.status}
+                          <span className="badge-dot"></span>
+                          {item.status}
                         </span>
                       </td>
                       <td className="text-sm">{item.rows?.toLocaleString() || '—'}</td>
