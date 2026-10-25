@@ -47,11 +47,27 @@ describe('Login page', () => {
     await user.type(screen.getByLabelText('Full Name'), 'New User');
     await user.type(screen.getByLabelText('Email Address'), 'new@example.com');
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'supersecret123');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() =>
       expect(registerMock).toHaveBeenCalledWith('new@example.com', 'supersecret123', 'New User'),
     );
+  });
+
+  it('refuses registration when the passwords do not match', async () => {
+    renderLogin();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText('Create one'));
+    await user.type(screen.getByLabelText('Full Name'), 'New User');
+    await user.type(screen.getByLabelText('Email Address'), 'new@example.com');
+    await user.type(screen.getByLabelText('Password'), 'supersecret123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'different-pass');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    // Give the async handler a chance to run
+    await waitFor(() => expect(registerMock).not.toHaveBeenCalled());
   });
 
   it('keeps the button disabled while a login is in flight', async () => {

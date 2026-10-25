@@ -25,6 +25,8 @@ function Transfers() {
   const [wizardStep, setWizardStep] = useState(1);
   const [showDetail, setShowDetail] = useState(null);
   const [detailLogs, setDetailLogs] = useState([]);
+  const [confirmCancel, setConfirmCancel] = useState(null);
+  const [wizardErrors, setWizardErrors] = useState([]);
   const detailId = showDetail?.id ?? null;
   const location = useLocation();
 
@@ -43,6 +45,14 @@ function Transfers() {
   const [sourceTables, setSourceTables] = useState([]);
   const [targetSchemas, setTargetSchemas] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
+
+  // Column mapping state: { include: {col: bool}, rename: {col: string} }
+  const [sourceColumns, setSourceColumns] = useState([]);
+  const [columnsLoading, setColumnsLoading] = useState(false);
+  const [columnSelection, setColumnSelection] = useState({
+    include: {},
+    rename: {},
+  });
 
   useEffect(() => {
     loadData();
@@ -63,8 +73,8 @@ function Transfers() {
   // Poll for running transfers
   const hasRunning = transfers.some((t) => t.status === 'running' || t.status === 'pending');
   usePolling(
-    async () => {
-      const res = await transfersAPI.list();
+    async (signal) => {
+      const res = await transfersAPI.list(undefined, signal);
       setTransfers(res.data);
     },
     5000,
@@ -107,7 +117,41 @@ function Transfers() {
     }
   };
 
+  const loadColumns = async () => {
+    if (!wizardForm.source_connection_id || !wizardForm.source_table) return;
+    setColumnsLoading(true);
+    try {
+      const res = await discoveryAPI.getColumns(
+        wizardForm.source_connection_id,
+        wizardForm.source_table,
+        wizardForm.source_schema || undefined,
+      );
+      setSourceColumns(res.data);
+      setColumnSelection({
+        include: Object.fromEntries(res.data.map((c) => [c.name, true])),
+        rename: {},
+      });
+    } catch {
+      toast.error('Failed to load columns');
+      setSourceColumns([]);
+    } finally {
+      setColumnsLoading(false);
+    }
+  };
+
+  const buildColumnMappings = () => {
+    const included = sourceColumns.filter((c) => columnSelection.include[c.name]);
+    if (included.length === sourceColumns.length) {
+      const renamed = included.filter((c) => columnSelection.rename[c.name]);
+      if (renamed.length === 0) return null; // transfer everything as-is
+    }
+    return Object.fromEntries(
+      included.map((c) => [c.name, columnSelection.rename[c.name]?.trim() || c.name]),
+    );
+  };
+
   const handleCreateTransfer = async () => {
+    setWizardErrors([]);
     try {
       const payload = {
         source_connection_id: wizardForm.source_connection_id,
@@ -115,9 +159,10 @@ function Transfers() {
         source_table: wizardForm.source_table,
         target_connection_id: wizardForm.target_connection_id,
         target_schema: wizardForm.target_schema || null,
-        target_table: wizardForm.target_table,
+        target_table: wizardForm.target_table || wizardForm.source_table,
         filter_query: wizardForm.filter_query || null,
         create_target_table: wizardForm.create_target_table,
+        column_mappings: buildColumnMappings(),
       };
       await transfersAPI.create(payload);
       toast.success('Transfer started!');
@@ -133,9 +178,17 @@ function Transfers() {
         filter_query: '',
         create_target_table: true,
       });
+      setSourceColumns([]);
+      setColumnSelection({ include: {}, rename: {} });
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create transfer');
+      const details = err.response?.data?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        setWizardErrors(details.map((d) => `${d.field}: ${d.message}`));
+        toast.error('Please fix the highlighted fields');
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to create transfer');
+      }
     }
   };
 
@@ -147,11 +200,11 @@ function Transfers() {
   // Keep an open detail modal in sync with the running job.
   const detailIsLive = showDetail?.status === 'running' || showDetail?.status === 'pending';
   usePolling(
-    async () => {
+    async (signal) => {
       if (!detailId) return null;
       const [jobRes, logsRes] = await Promise.all([
-        transfersAPI.get(detailId),
-        transfersAPI.getLogs(detailId),
+        transfersAPI.get(detailId, signal),
+        transfersAPI.getLogs(detailId, signal),
       ]);
       setShowDetail(jobRes.data);
       setDetailLogs(logsRes.data);
@@ -165,6 +218,7 @@ function Transfers() {
     try {
       await transfersAPI.cancel(id);
       toast.success('Transfer cancelled');
+      setConfirmCancel(null);
       loadData();
     } catch {
       toast.error('Failed to cancel transfer');
@@ -313,10 +367,10 @@ function Transfers() {
                           </button>
                           {(tx.status === 'running' || tx.status === 'pending') && (
                             <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => cancelTransfer(tx.id)}
-                              style={{ color: 'var(--color-danger)' }}
+                              className="btn btn-ghost btn-sm btn-danger-icon"
+                              onClick={() => setConfirmCancel(tx)}
                               title="Cancel"
+                              aria-label={`Cancel transfer of ${tx.source_table}`}
                             >
                               <HiOutlineStop />
                             </button>
@@ -369,6 +423,9 @@ function Transfers() {
                     if (wizardStep === 2 && !wizardForm.target_table) {
                       setWizardForm((prev) => ({ ...prev, target_table: prev.source_table }));
                     }
+                    if (wizardStep === 2) {
+                      loadColumns();
+                    }
                     setWizardStep((s) => s + 1);
                   }}
                 >
@@ -388,6 +445,15 @@ function Transfers() {
           }
         >
           {/* Wizard Steps Indicator */}
+          {wizardErrors.length > 0 && (
+            <div className="alert alert-danger" role="alert">
+              <ul className="wizard-error-list">
+                {wizardErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="wizard-steps wizard-steps-spaced">
             {['Source', 'Target', 'Options', 'Review'].map((label, i) => {
               const stepNum = i + 1;
@@ -433,11 +499,13 @@ function Transfers() {
                   }}
                 >
                   <option value="">Select a connection</option>
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.db_type})
-                    </option>
-                  ))}
+                  {connections
+                    .filter((c) => c.is_active)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.db_type})
+                      </option>
+                    ))}
                 </select>
               </div>
               <div className="form-group">
@@ -513,11 +581,13 @@ function Transfers() {
                   }}
                 >
                   <option value="">Select a connection</option>
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.db_type})
-                    </option>
-                  ))}
+                  {connections
+                    .filter((c) => c.is_active)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.db_type})
+                      </option>
+                    ))}
                 </select>
               </div>
               <div className="form-group">
@@ -586,6 +656,56 @@ function Transfers() {
                 />
                 <span className="text-sm">Auto-create target table if it doesn&apos;t exist</span>
               </label>
+
+              <div className="column-mapping-section">
+                <div className="form-label">Columns</div>
+                <div className="text-xs text-muted column-mapping-hint">
+                  Untick columns to skip them; type a new name to rename them in the target table.
+                </div>
+                {columnsLoading ? (
+                  <div className="loading-overlay">
+                    <div className="spinner"></div>
+                  </div>
+                ) : sourceColumns.length === 0 ? (
+                  <div className="text-muted text-sm">
+                    Columns unavailable — all source columns will be transferred.
+                  </div>
+                ) : (
+                  <div className="column-mapping-list">
+                    {sourceColumns.map((col) => (
+                      <div key={col.name} className="column-mapping-row">
+                        <label className="form-checkbox column-mapping-name">
+                          <input
+                            type="checkbox"
+                            checked={columnSelection.include[col.name] ?? true}
+                            onChange={(e) =>
+                              setColumnSelection((prev) => ({
+                                ...prev,
+                                include: { ...prev.include, [col.name]: e.target.checked },
+                              }))
+                            }
+                          />
+                          <span className="font-mono text-sm">{col.name}</span>
+                        </label>
+                        <span className="text-muted text-xs column-mapping-type">{col.type}</span>
+                        <input
+                          className="form-input form-input-sm column-mapping-rename"
+                          placeholder="same name"
+                          aria-label={`Target name for ${col.name}`}
+                          value={columnSelection.rename[col.name] || ''}
+                          disabled={!columnSelection.include[col.name]}
+                          onChange={(e) =>
+                            setColumnSelection((prev) => ({
+                              ...prev,
+                              rename: { ...prev.rename, [col.name]: e.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -619,19 +739,32 @@ function Transfers() {
                   </div>
                 </div>
                 {wizardForm.filter_query && (
-                  <div
-                    style={{
-                      marginTop: '16px',
-                      paddingTop: '16px',
-                      borderTop: '1px solid var(--color-border)',
-                    }}
-                  >
+                  <div className="transfer-summary-extra">
                     <div className="text-xs text-muted">FILTER</div>
                     <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
                       {wizardForm.filter_query}
                     </div>
                   </div>
                 )}
+                {(() => {
+                  const mappings = buildColumnMappings();
+                  if (!mappings) return null;
+                  const renamed = Object.entries(mappings).filter(([from, to]) => from !== to);
+                  const skipped = sourceColumns.length - Object.keys(mappings).length;
+                  return (
+                    <div className="transfer-summary-extra">
+                      <div className="text-xs text-muted">COLUMNS</div>
+                      <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
+                        {Object.keys(mappings).length} of {sourceColumns.length} transferred
+                        {renamed.length > 0 &&
+                          ` · renamed: ${renamed
+                            .map(([from, to]) => `${from} → ${to}`)
+                            .join(', ')}`}
+                        {skipped > 0 && ` · skipped: ${skipped}`}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -703,6 +836,41 @@ function Transfers() {
               ))
             )}
           </div>
+        </Modal>
+      )}
+      {/* Cancel Confirmation Modal */}
+      {confirmCancel && (
+        <Modal
+          title="Cancel Transfer"
+          maxWidth="440px"
+          onClose={() => setConfirmCancel(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmCancel(null)}
+              >
+                Keep Running
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => cancelTransfer(confirmCancel.id)}
+                id="btn-confirm-cancel"
+              >
+                Cancel Transfer
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            Cancel the transfer of <span className="font-mono">{confirmCancel.source_table}</span>{' '}
+            to <span className="font-mono">{confirmCancel.target_table}</span>?
+          </p>
+          <p className="text-sm text-muted">
+            Rows already staged are discarded — the target table is left untouched.
+          </p>
         </Modal>
       )}
     </div>

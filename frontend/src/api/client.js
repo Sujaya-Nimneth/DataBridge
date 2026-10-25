@@ -98,9 +98,9 @@ export const discoveryAPI = {
 // Transfers API
 export const transfersAPI = {
   create: (data) => client.post('/transfers', data),
-  list: (params) => client.get('/transfers', { params }),
-  get: (id) => client.get(`/transfers/${id}`),
-  getLogs: (id) => client.get(`/transfers/${id}/logs`),
+  list: (params, signal) => client.get('/transfers', { params, signal }),
+  get: (id, signal) => client.get(`/transfers/${id}`, { signal }),
+  getLogs: (id, signal) => client.get(`/transfers/${id}/logs`, { signal }),
   cancel: (id) => client.post(`/transfers/${id}/cancel`),
 };
 
@@ -110,4 +110,9 @@ export const monitoringAPI = {
   getConnectionStatuses: () => client.get('/monitoring/connections/status'),
   getActivity: (limit) => client.get('/monitoring/activity', { params: { limit } }),
   getMetrics: () => client.get('/monitoring/metrics'),
+};
+
+// Admin API (requires the admin role)
+export const adminAPI = {
+  listUsers: () => client.get('/admin/users'),
 };

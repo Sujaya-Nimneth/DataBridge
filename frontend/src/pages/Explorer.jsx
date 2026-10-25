@@ -19,6 +19,7 @@ import {
 function Explorer() {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [treeData, setTreeData] = useState({});
   const [expanded, setExpanded] = useState({});
   const [selectedTable, setSelectedTable] = useState(null);
@@ -33,10 +34,14 @@ function Explorer() {
   }, []);
 
   const loadConnections = async () => {
+    setLoadFailed(false);
+    setLoading(true);
     try {
       const res = await connectionsAPI.list();
-      setConnections(res.data);
+      // Deactivated connections cannot be used for discovery.
+      setConnections(res.data.filter((c) => c.is_active));
     } catch {
+      setLoadFailed(true);
       toast.error('Failed to load connections');
     } finally {
       setLoading(false);
@@ -118,7 +123,20 @@ function Explorer() {
         <p>Browse database structures and preview data</p>
       </div>
 
-      {connections.length === 0 ? (
+      {loadFailed ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <HiOutlineDatabase aria-hidden="true" />
+            </div>
+            <h3>Could not load connections</h3>
+            <p>The server did not respond. Check that the API is running.</p>
+            <button className="btn btn-primary" onClick={loadConnections}>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : connections.length === 0 ? (
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">

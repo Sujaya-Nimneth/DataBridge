@@ -13,11 +13,18 @@ function Login() {
   const [form, setForm] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     fullName: '',
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isRegister && form.password !== form.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -50,7 +57,10 @@ function Login() {
           <p>{isRegister ? 'Get started with DataBridge' : 'Sign in to your DataBridge account'}</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          aria-label={isRegister ? 'Registration form' : 'Sign-in form'}
+        >
           {isRegister && (
             <div className="form-group">
               <label className="form-label" htmlFor="input-fullname">
@@ -61,6 +71,7 @@ function Login() {
                 className="form-input"
                 type="text"
                 placeholder="John Doe"
+                autoComplete="name"
                 value={form.fullName}
                 onChange={(e) => updateForm('fullName', e.target.value)}
                 required
@@ -77,6 +88,7 @@ function Login() {
               className="form-input"
               type="email"
               placeholder="you@example.com"
+              autoComplete="email"
               value={form.email}
               onChange={(e) => updateForm('email', e.target.value)}
               required
@@ -92,12 +104,32 @@ function Login() {
               className="form-input"
               type="password"
               placeholder="••••••••"
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
               value={form.password}
               onChange={(e) => updateForm('password', e.target.value)}
               minLength={8}
               required
             />
           </div>
+
+          {isRegister && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="input-confirm-password">
+                Confirm Password
+              </label>
+              <input
+                id="input-confirm-password"
+                className="form-input"
+                type="password"
+                placeholder="••••••••"
+                autoComplete="new-password"
+                value={form.confirmPassword}
+                onChange={(e) => updateForm('confirmPassword', e.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+          )}
 
           <button
             id="btn-login-submit"

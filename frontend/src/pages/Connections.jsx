@@ -20,6 +20,8 @@ function Connections() {
   const [showModal, setShowModal] = useState(false);
   const [editConn, setEditConn] = useState(null);
   const [testing, setTesting] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [formErrors, setFormErrors] = useState([]);
   const [form, setForm] = useState({
     name: '',
     db_type: 'postgresql',
@@ -82,31 +84,60 @@ function Connections() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormErrors([]);
+
+    const port = Number(form.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      setFormErrors(['port: must be a whole number between 1 and 65535']);
+      return;
+    }
+
     try {
       if (editConn) {
-        const updateData = { ...form };
+        const updateData = { ...form, port };
         if (!updateData.password) delete updateData.password;
         await connectionsAPI.update(editConn.id, updateData);
         toast.success('Connection updated');
       } else {
-        await connectionsAPI.create(form);
+        await connectionsAPI.create({ ...form, port });
         toast.success('Connection created');
       }
       setShowModal(false);
       loadConnections();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Operation failed');
+      const details = err.response?.data?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        setFormErrors(details.map((d) => `${d.field}: ${d.message}`));
+      } else {
+        toast.error(err.response?.data?.message || 'Operation failed');
+      }
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this connection?')) return;
     try {
       await connectionsAPI.delete(id);
       toast.success('Connection deleted');
+      setConfirmDelete(null);
+      loadConnections();
+    } catch (err) {
+      const message = err.response?.data?.message;
+      if (err.response?.status === 409) {
+        toast.error(message || 'Connections with transfer history cannot be deleted');
+      } else {
+        toast.error('Failed to delete connection');
+      }
+      setConfirmDelete(null);
+    }
+  };
+
+  const handleToggleActive = async (conn) => {
+    try {
+      await connectionsAPI.update(conn.id, { is_active: !conn.is_active });
+      toast.success(conn.is_active ? 'Connection deactivated' : 'Connection activated');
       loadConnections();
     } catch {
-      toast.error('Failed to delete connection');
+      toast.error('Failed to update connection');
     }
   };
 
@@ -170,7 +201,10 @@ function Connections() {
       ) : (
         <div className="connection-grid">
           {connections.map((conn) => (
-            <div key={conn.id} className="connection-card">
+            <div
+              key={conn.id}
+              className={`connection-card ${conn.is_active ? '' : 'connection-card-inactive'}`}
+            >
               <div className="connection-card-header">
                 <div>
                   <div className="connection-name">{conn.name}</div>
@@ -188,6 +222,7 @@ function Connections() {
                   <span className="badge-dot"></span>
                   {conn.last_test_status}
                 </span>
+                {!conn.is_active && <span className="badge badge-neutral">inactive</span>}
                 {conn.last_tested_at && (
                   <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
                     Tested {new Date(conn.last_tested_at).toLocaleString()}
@@ -214,8 +249,15 @@ function Connections() {
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={() => handleDelete(conn.id)}
-                  style={{ color: 'var(--color-danger)' }}
+                  onClick={() => handleToggleActive(conn)}
+                  title={conn.is_active ? 'Deactivate connection' : 'Activate connection'}
+                >
+                  {conn.is_active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm btn-danger-icon"
+                  onClick={() => setConfirmDelete(conn)}
+                  aria-label={`Delete connection ${conn.name}`}
                 >
                   <HiOutlineTrash />
                 </button>
@@ -232,6 +274,15 @@ function Connections() {
           onClose={() => setShowModal(false)}
         >
           <form onSubmit={handleSubmit}>
+            {formErrors.length > 0 && (
+              <div className="alert alert-danger" role="alert">
+                <ul className="wizard-error-list">
+                  {formErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">Connection Name</label>
               <input
@@ -272,12 +323,22 @@ function Connections() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Port</label>
+                <label className="form-label" htmlFor="input-port">
+                  Port
+                </label>
                 <input
+                  id="input-port"
                   className="form-input"
                   type="number"
+                  min="1"
+                  max="65535"
                   value={form.port}
-                  onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      port: e.target.value === '' ? '' : Number(e.target.value),
+                    })
+                  }
                   required
                 />
               </div>
@@ -336,6 +397,41 @@ function Connections() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <Modal
+          title="Delete Connection"
+          maxWidth="440px"
+          onClose={() => setConfirmDelete(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmDelete(null)}
+              >
+                Keep Connection
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleDelete(confirmDelete.id)}
+                id="btn-confirm-delete"
+              >
+                Delete
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            Delete <span className="font-semibold">{confirmDelete.name}</span> permanently?
+          </p>
+          <p className="text-sm text-muted">
+            Stored credentials are removed. Connections referenced by transfer history are protected
+            and cannot be deleted.
+          </p>
         </Modal>
       )}
     </div>
