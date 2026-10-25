@@ -18,6 +18,25 @@
 | **⚡ Background Processing** | Celery workers for async transfer execution with Redis broker |
 | **🐳 Containerized** | Full Docker Compose setup for one-command deployment |
 
+## 📸 Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Data Explorer](docs/screenshots/explorer.png) |
+| ![Transfer wizard with column mapping](docs/screenshots/wizard-columns.png) | ![Transfer history with execution logs](docs/screenshots/transfer-detail.png) |
+| ![Connections](docs/screenshots/connections.png) | ![Monitoring](docs/screenshots/monitoring.png) |
+
+<details>
+<summary>More views</summary>
+
+| | |
+|---|---|
+| ![Sign in](docs/screenshots/login.png) | ![Admin users](docs/screenshots/admin-users.png) |
+| ![Transfer history](docs/screenshots/transfers.png) | |
+</details>
+
+*Captured from the [demo stack](#60-second-demo-with-sample-data) after its scripted PostgreSQL → MySQL transfer.*
+
 ## 🏗️ Architecture
 
 ```
@@ -51,7 +70,7 @@
 - **Framework**: FastAPI (Python 3.11)
 - **ORM**: SQLAlchemy 2.0 (async)
 - **Database**: PostgreSQL (application data)
-- **Auth**: JWT (python-jose) + bcrypt (passlib)
+- **Auth**: JWT (PyJWT) + bcrypt
 - **Encryption**: Fernet (cryptography)
 - **Background Tasks**: Celery + Redis
 - **Migrations**: Alembic
@@ -129,8 +148,14 @@ docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
 ./demo/demo_transfer.sh
 ```
 
-Then sign in at http://localhost:5173 (`demo@databridge.local` /
-`demo-password-123`) to explore the data and watch the transfer history.
+Then sign in at http://localhost:5173 (`demo@example.com` /
+`demo-password-123`) to explore the data and watch the transfer history —
+the script also promotes that account to **admin**, so the Monitoring →
+Users tab is unlocked. To grant admin to any other account:
+
+```bash
+docker compose exec backend python -m scripts.promote_admin someone@example.com
+```
 
 ---
 

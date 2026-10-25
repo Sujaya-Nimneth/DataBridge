@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-EMAIL="${1:-demo@databridge.local}"
+EMAIL="${1:-demo@example.com}"
 PASSWORD="${2:-demo-password-123}"
 API="http://localhost:8000/api"
 
@@ -70,5 +70,9 @@ curl -s "$API/transfers/$JOB/logs" -H "$AUTH" \
 
 say "Row count in the target table"
 curl -s "$API/discovery/$TARGET_ID/tables/customers/count?schema=demo_target" -H "$AUTH"; echo
+
+say "Promoting the demo user to admin (Monitoring > Users tab)"
+docker compose -f docker-compose.yml -f docker-compose.demo.yml exec -T backend \
+  python -m scripts.promote_admin "$EMAIL" || echo "  (not running under Docker — promote manually with: python -m scripts.promote_admin $EMAIL)"
 
 printf '\nDone. Sign in at http://localhost:5173 (%s / %s) to explore.\n' "$EMAIL" "$PASSWORD"
