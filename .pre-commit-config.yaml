@@ -1,0 +1,33 @@
+# Fast local checks before every commit.
+# Install once with: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: frontend-format
+        name: prettier (frontend)
+        language: system
+        entry: npm --prefix frontend run format:check
+        pass_filenames: false
+        files: ^frontend/
+      - id: frontend-lint
+        name: eslint (frontend)
+        language: system
+        entry: npm --prefix frontend run lint
+        pass_filenames: false
+        files: ^frontend/
