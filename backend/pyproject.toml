@@ -38,7 +38,7 @@ show_error_codes = true
 exclude = ["alembic/"]
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "redis.*"]
+module = ["celery.*", "redis.*", "pymysql.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

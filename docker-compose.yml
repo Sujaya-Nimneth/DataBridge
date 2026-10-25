@@ -77,6 +77,23 @@ services:
         condition: service_completed_successfully
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
 
+  beat:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-databridge}:${POSTGRES_PASSWORD:-databridge}@db:5432/${POSTGRES_DB:-databridge}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your environment}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in your environment}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: celery -A app.workers.celery_app beat --loglevel=info
+
   frontend:
     build: ./frontend
     ports:

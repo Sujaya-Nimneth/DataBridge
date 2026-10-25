@@ -1,10 +1,10 @@
 """
-Characterization tests for the Celery transfer task.
+Tests for the Celery transfer task.
 
 The task runs for real (eager Celery, in-memory result backend) against
 SQLite source/target databases and a SQLite application database, so the
-batching, mapping, table-creation, progress and status logic is exercised
-end to end without external services.
+staging, batching, mapping, publish, cancellation and failure paths are
+exercised end to end without external services.
 
 SQLite has no schemas, so each engine ATTACHes its own file under the
 alias ``public`` — that keeps the task's schema-qualified SQL (written for
@@ -13,10 +13,11 @@ PostgreSQL/MySQL) valid here.
 
 import sqlite3
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import JSON, Integer, String, Text, create_engine, event, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
@@ -27,7 +28,12 @@ from app.models.user import User
 from app.security import encrypt_value
 from app.workers import transfer_tasks
 from app.workers.celery_app import celery_app
-from app.workers.transfer_tasks import execute_transfer
+from app.workers.transfer_tasks import (
+    _mapped_type,
+    _staging_table_name,
+    execute_transfer,
+    reap_stale_transfers,
+)
 
 BATCH_SIZE = 1000
 
@@ -45,15 +51,13 @@ def worker_env(tmp_path, monkeypatch):
     files = {"src.db": str(source_file), "tgt.db": str(target_file)}
     real_create_engine = transfer_tasks.create_engine
 
-    def sqlite_attach_engine(url, **kwargs):
-        engine = real_create_engine(url, **kwargs)
+    def fake_remote_engine(conn_row, url, *, streaming=False):
+        engine = real_create_engine(url, pool_pre_ping=True)
         url_str = str(url)
         if url_str.startswith("sqlite:///"):
             db_file = url_str[len("sqlite:///") :]
             event.listen(
-                engine,
-                "connect",
-                lambda dbapi_conn, _: dbapi_conn.execute(f"ATTACH DATABASE '{db_file}' AS public"),
+                engine, "connect", lambda c, _: c.execute(f"ATTACH DATABASE '{db_file}' AS public")
             )
         return engine
 
@@ -66,7 +70,7 @@ def worker_env(tmp_path, monkeypatch):
             f"sqlite:///{files[database_name]}"
         ),
     )
-    monkeypatch.setattr(transfer_tasks, "create_engine", sqlite_attach_engine)
+    monkeypatch.setattr(transfer_tasks, "_create_remote_engine", fake_remote_engine)
 
     old_eager = celery_app.conf.task_always_eager
     old_backend = celery_app.conf.result_backend
@@ -81,7 +85,7 @@ def worker_env(tmp_path, monkeypatch):
 
 
 def seed_source_db(worker_env, rows):
-    """Create the source table and insert ``rows`` tuples of (name, email, score)."""
+    """Create the source table and insert ``rows`` (name, email, score) tuples."""
     engine = create_engine(f"sqlite:///{worker_env['files']['src.db']}")
     with engine.begin() as conn:
         conn.execute(
@@ -95,6 +99,20 @@ def seed_source_db(worker_env, rows):
                 {"n": f"user-{i}", "e": f"user-{i}@example.com", "s": i},
             )
     engine.dispose()
+
+
+def seed_target_table(worker_env, table="users_copy", rows=3):
+    """Pre-create a target table with old data (for replace semantics)."""
+    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
+        conn.execute(
+            f"CREATE TABLE {table} ( id INTEGER PRIMARY KEY, name TEXT, email TEXT, score INTEGER)"
+        )
+        for i in range(rows):
+            conn.execute(
+                f"INSERT INTO {table} (name, email, score) VALUES (?, ?, ?)",
+                (f"old-{i}", f"old-{i}@x.com", -1),
+            )
+        conn.commit()
 
 
 def create_job(worker_env, **overrides):
@@ -186,6 +204,11 @@ def fetch_logs(worker_env, job_id):
         ]
 
 
+def target_tables(worker_env):
+    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
+        return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+
 def target_table_row_count(worker_env, table="users_copy"):
     with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
         return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
@@ -194,6 +217,14 @@ def target_table_row_count(worker_env, table="users_copy"):
 def target_table_columns(worker_env, table="users_copy"):
     with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
         return [row[1] for row in conn.execute(f"PRAGMA table_info({table})")]
+
+
+def target_table_pk_columns(worker_env, table="users_copy"):
+    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
+        return [row[1] for row in conn.execute(f"PRAGMA table_info({table})") if row[5] > 0]
+
+
+# --- Happy path ---
 
 
 def test_transfer_copies_all_rows_across_batches(worker_env):
@@ -210,10 +241,19 @@ def test_transfer_copies_all_rows_across_batches(worker_env):
     assert job_row["transferred_rows"] == rows
     assert job_row["error_message"] is None
     assert target_table_row_count(worker_env) == rows
+    # the staging table must not linger after a successful publish
+    assert target_tables(worker_env) == {"users_copy"}
 
     messages = [log["message"] for log in fetch_logs(worker_env, job_id)]
-    assert any("Target table 'users_copy' created/verified" in m for m in messages)
-    assert any(f"Transfer completed: {rows} rows transferred" in m for m in messages)
+    assert any("published" in m and "renamed" in m for m in messages)
+
+
+def test_published_table_keeps_primary_key(worker_env):
+    seed_source_db(worker_env, 10)
+    job_id = create_job(worker_env)
+
+    assert execute_transfer.apply(args=[job_id]).successful()
+    assert target_table_pk_columns(worker_env) == ["id"]
 
 
 def test_transfer_applies_column_mappings_and_filter(worker_env):
@@ -233,9 +273,30 @@ def test_transfer_applies_column_mappings_and_filter(worker_env):
     assert job_row["transferred_rows"] == 50
     assert sorted(target_table_columns(worker_env)) == ["full_name", "user_id"]
     assert target_table_row_count(worker_env) == 50
+    # PK flag follows the renamed column
+    assert target_table_pk_columns(worker_env) == ["user_id"]
 
 
-def test_transfer_failure_marks_job_failed(worker_env):
+def test_transfer_replaces_existing_target_without_duplicates(worker_env):
+    seed_source_db(worker_env, 120)
+    seed_target_table(worker_env, rows=3)
+    job_id = create_job(worker_env)
+
+    result = execute_transfer.apply(args=[job_id])
+
+    assert result.successful(), result.result
+    assert fetch_job_row(worker_env, job_id)["status"] == "completed"
+    assert target_table_row_count(worker_env) == 120  # old rows replaced
+    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
+        names = {row[0] for row in conn.execute("SELECT name FROM users_copy")}
+    assert "old-0" not in names
+    assert target_tables(worker_env) == {"users_copy"}
+
+
+# --- Failure and validation ---
+
+
+def test_transfer_failure_marks_job_failed_and_cleans_staging(worker_env):
     seed_source_db(worker_env, 5)
     job_id = create_job(worker_env, source_table="does_not_exist")
 
@@ -247,16 +308,50 @@ def test_transfer_failure_marks_job_failed(worker_env):
     assert job_row["error_message"]
     error_logs = [log for log in fetch_logs(worker_env, job_id) if log["level"] == "error"]
     assert error_logs, "expected an ERROR-level log entry for the failure"
+    assert target_tables(worker_env) == set()  # staging dropped, nothing published
 
 
-def test_cancel_during_transfer_is_overwritten_by_completion(worker_env):
-    """
-    Characterises the current cancel race: the API can mark a job cancelled
-    mid-flight, but the worker never re-checks status and finishes with
-    'completed', overwriting the user's cancellation.
+def test_transfer_rejects_malicious_table_name(worker_env):
+    """Identifiers smuggled straight into the jobs table fail the task safely."""
+    seed_source_db(worker_env, 5)
+    job_id = create_job(worker_env, source_table='users"; DROP TABLE x; --')
 
-    Phase 4 (staging + guarded transitions) will flip this expectation.
-    """
+    result = execute_transfer.apply(args=[job_id])
+
+    assert result.failed()
+    job_row = fetch_job_row(worker_env, job_id)
+    assert job_row["status"] == "failed"
+    assert "source_table" in job_row["error_message"]
+    assert target_tables(worker_env) == set()
+
+
+def test_missing_target_without_autocreate_fails_cleanly(worker_env):
+    seed_source_db(worker_env, 5)
+    job_id = create_job(worker_env, create_target_table=False)
+
+    result = execute_transfer.apply(args=[job_id])
+
+    assert result.failed()
+    job_row = fetch_job_row(worker_env, job_id)
+    assert "does not exist" in job_row["error_message"]
+    assert target_tables(worker_env) == set()
+
+
+def test_unknown_column_mapping_fails_cleanly(worker_env):
+    seed_source_db(worker_env, 5)
+    job_id = create_job(worker_env, column_mappings={"nope": "x"})
+
+    result = execute_transfer.apply(args=[job_id])
+
+    assert result.failed()
+    assert "unknown source columns" in fetch_job_row(worker_env, job_id)["error_message"]
+
+
+# --- Cancellation ---
+
+
+def test_cancel_during_transfer_discards_staged_data(worker_env):
+    """A mid-flight cancellation leaves the target untouched."""
     rows = BATCH_SIZE * 2
     seed_source_db(worker_env, rows)
     job_id = create_job(worker_env)
@@ -280,22 +375,79 @@ def test_cancel_during_transfer_is_overwritten_by_completion(worker_env):
     finally:
         transfer_tasks._insert_batch = real_insert
 
-    assert result.successful(), result.result
-    assert fetch_job_row(worker_env, job_id)["status"] == "completed"
-    assert target_table_row_count(worker_env) == rows
+    assert result.successful(), result.result  # cooperative exit, not a crash
+    assert fetch_job_row(worker_env, job_id)["status"] == "cancelled"
+    # Nothing published, no staging leftovers
+    assert target_tables(worker_env) == set()
+    messages = [log["message"] for log in fetch_logs(worker_env, job_id)]
+    assert any("discarded" in m for m in messages)
 
 
-def test_transfer_rejects_malicious_table_name(worker_env):
-    """Identifiers smuggled straight into the jobs table fail the task safely."""
-    seed_source_db(worker_env, 5)
-    job_id = create_job(worker_env, source_table='users"; DROP TABLE x; --')
+# --- Helpers ---
 
-    result = execute_transfer.apply(args=[job_id])
 
-    assert result.failed()
-    job_row = fetch_job_row(worker_env, job_id)
-    assert job_row["status"] == "failed"
-    assert "source_table" in job_row["error_message"]
-    with sqlite3.connect(worker_env["files"]["tgt.db"]) as conn:
-        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-    assert tables == []
+def test_mapped_type_translates_postgres_only_types():
+    assert isinstance(_mapped_type(ARRAY(Integer())), JSON)
+    assert isinstance(_mapped_type(JSONB()), JSON)
+    assert isinstance(_mapped_type(UUID()), String)
+    assert _mapped_type(UUID()).length == 36
+    assert isinstance(_mapped_type(String()), Text)  # unlengthed VARCHAR
+    assert isinstance(_mapped_type(String(50)), String)
+
+
+def test_staging_table_name_is_a_valid_identifier():
+    name = _staging_table_name("a" * 100, "12345678-1234-4abc-8def-1234567890ab")
+    assert len(name) <= 64
+    assert name.startswith("a" * 48 + "__stg_")
+    assert name.replace("_", "x").isalnum()
+
+
+# --- Reaper ---
+
+
+def test_reaper_fails_stale_jobs_but_keeps_fresh_ones(worker_env):
+    engine = worker_env["app_engine"]
+    session = sessionmaker(bind=engine)()
+    user = User(email=f"{uuid.uuid4().hex[:8]}@reap.test", hashed_password="x", full_name="R")
+    session.add(user)
+    session.flush()
+
+    def job(**overrides):
+        defaults = {
+            "user_id": user.id,
+            "source_connection_id": user.id,  # FK not enforced on SQLite
+            "source_table": "t",
+            "target_connection_id": user.id,
+            "target_table": "t",
+            "status": TransferStatus.RUNNING,
+            "started_at": datetime.now(UTC),
+            "created_at": datetime.now(UTC),
+        }
+        defaults.update(overrides)
+        instance = TransferJob(**defaults)
+        session.add(instance)
+        session.flush()
+        return instance.id.hex
+
+    stale_running = job(started_at=datetime.now(UTC) - timedelta(hours=3))
+    fresh_running = job()
+    stale_pending = job(
+        status=TransferStatus.PENDING,
+        started_at=None,
+        created_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    session.commit()
+    session.close()
+
+    outcome = reap_stale_transfers.apply().get()
+
+    assert outcome == {"stale_running": 1, "stale_pending": 1}
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT id, status, error_message FROM transfer_jobs"),
+        ).mappings()
+        by_id = {row["id"]: row for row in rows}
+    assert by_id[stale_running]["status"] == "failed"
+    assert "stopped responding" in by_id[stale_running]["error_message"]
+    assert by_id[stale_pending]["status"] == "failed"
+    assert by_id[fresh_running]["status"] == "running"

@@ -33,4 +33,11 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     # Track task state
     task_track_started=True,
+    # Periodic maintenance: fail jobs whose worker died or dispatch failed
+    beat_schedule={
+        "reap-stale-transfers": {
+            "task": "workers.reap_stale_transfers",
+            "schedule": 900.0,  # every 15 minutes
+        },
+    },
 )

@@ -1,14 +1,33 @@
 """
 Celery tasks for executing data transfers between databases.
-Handles batch processing, progress tracking, and error recovery.
+
+Transfers are atomic by construction: rows are first loaded into a per-job
+staging table, and only published to the target table once every row has
+arrived. Failures and cancellations drop the staging table, leaving the
+target untouched — a failed job can simply be re-run without duplicates.
 """
 
 import json
+import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
-from sqlalchemy import Column, MetaData, Table, create_engine, inspect, text
-from sqlalchemy.engine import URL, Engine
+import pymysql.cursors
+from sqlalchemy import (
+    JSON,
+    Column,
+    MetaData,
+    String,
+    Table,
+    Text,
+    create_engine,
+    inspect,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.engine import URL, CursorResult, Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
@@ -21,9 +40,16 @@ from app.sql_utils import (
 )
 from app.workers.celery_app import celery_app
 
+logger = logging.getLogger(__name__)
+
 # Reuse a single engine per worker process instead of creating one per task.
 _app_engine: Engine | None = None
 _app_session_factory: sessionmaker | None = None
+
+# Jobs stuck in these states for this long are assumed dead (crashed worker
+# or a dispatch that never reached the broker) and are failed by the reaper.
+STALE_RUNNING_AFTER = timedelta(hours=2)
+STALE_PENDING_AFTER = timedelta(minutes=30)
 
 
 def _get_app_session() -> Session:
@@ -51,6 +77,53 @@ def _build_url(db_type, host, port, database_name, username, password):
         port=port,
         database=database_name,
     )
+
+
+def _create_remote_engine(conn_row, url, *, streaming: bool = False) -> Engine:
+    """
+    Create an engine for a user database with driver-appropriate arguments.
+
+    ``streaming`` selects a true server-side cursor for MySQL sources, where
+    ``stream_results`` is ignored and the default client cursor would buffer
+    the entire source table in worker memory.
+    """
+    connect_args: dict = {"connect_timeout": 10}
+    db_type = conn_row["db_type"]
+    if db_type == DatabaseType.MYSQL.value:
+        if conn_row.get("ssl_enabled"):
+            connect_args["ssl"] = {}
+        if streaming:
+            connect_args["cursorclass"] = pymysql.cursors.SSCursor
+    elif conn_row.get("ssl_enabled"):
+        connect_args["sslmode"] = "require"
+    return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+
+
+def _default_schema(db_type: str, database_name: str) -> str:
+    """Mirror ConnectionService's default-schema rules."""
+    return "public" if db_type == DatabaseType.POSTGRESQL.value else database_name
+
+
+def _staging_table_name(target_table: str, job_id: str) -> str:
+    """A per-job staging table name that fits the 64-char identifier limit."""
+    return f"{target_table[:48]}__stg_{job_id.replace('-', '')[:10]}"
+
+
+def _mapped_type(col_type):
+    """
+    Translate reflected types into cross-dialect-safe equivalents.
+
+    PostgreSQL-only types (ARRAY, JSONB, UUID) and unlengthed VARCHARs
+    cannot be DDL'd against MySQL; map them to types every supported
+    engine understands.
+    """
+    if isinstance(col_type, ARRAY | JSONB):
+        return JSON()
+    if isinstance(col_type, PG_UUID):
+        return String(36)
+    if isinstance(col_type, String) and not col_type.length:
+        return Text()
+    return col_type
 
 
 def _add_log(session, job_id, level: LogLevel, message):
@@ -86,23 +159,155 @@ def _set_status(session, job_id, status: TransferStatus, **extra):
     session.commit()
 
 
-@celery_app.task(bind=True, max_retries=2, default_retry_delay=30)
+def _set_status_if(session, job_id, expected: TransferStatus, new: TransferStatus, **extra) -> bool:
+    """
+    Transition a job's status only if it is still in ``expected``.
+
+    This is what prevents a finished worker from overwriting a status the
+    user set meanwhile (e.g. CANCELLED mid-transfer).
+    """
+    assignments = ["status = :new"]
+    params = {"id": job_id, "new": new.value, "expected": expected.value}
+    for column, value in extra.items():
+        assignments.append(f"{column} = :{column}")
+        params[column] = value
+
+    result = session.execute(
+        text(
+            f"UPDATE transfer_jobs SET {', '.join(assignments)} "
+            "WHERE id = :id AND status = :expected"
+        ),
+        params,
+    )
+    session.commit()
+    return bool(cast("CursorResult", result).rowcount)
+
+
+def _current_status(session, job_id) -> str | None:
+    """Read a job's current status (cheap cancel check between batches)."""
+    return cast(
+        "str | None",
+        session.execute(
+            text("SELECT status FROM transfer_jobs WHERE id = :id"), {"id": str(job_id)}
+        ).scalar(),
+    )
+
+
+def _drop_table(engine: Engine, qualified_table: str) -> None:
+    """Best-effort cleanup of a staging table."""
+    with engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {qualified_table}"))
+
+
+def _create_staging_table(
+    source_engine: Engine,
+    target_engine: Engine,
+    source_schema: str,
+    target_schema: str,
+    source_table: str,
+    staging_table: str,
+    select_cols: list[str],
+    column_mappings: dict,
+    job_id: str,
+    app_session,
+) -> str:
+    """
+    Create the staging table on the target, mirroring source columns.
+
+    Returns the qualified staging table name. Types are translated to
+    dialect-safe equivalents and primary key membership is preserved so a
+    published target table keeps its identity.
+    """
+    source_meta = MetaData()
+    source_meta.reflect(bind=source_engine, schema=source_schema, only=[source_table])
+    src_table_obj = source_meta.tables.get(
+        f"{source_schema}.{source_table}" if source_schema else source_table
+    )
+    if src_table_obj is None:
+        raise ValueError(f"Source table '{source_table}' could not be reflected")
+
+    pk_names = {col.name for col in src_table_obj.primary_key.columns}
+
+    staging_meta = MetaData(schema=target_schema or None)
+    staging_columns = []
+    for col in src_table_obj.columns:
+        if col.name in select_cols:
+            new_name = column_mappings.get(col.name, col.name)
+            staging_columns.append(
+                Column(
+                    new_name,
+                    _mapped_type(col.type),
+                    nullable=col.nullable,
+                    primary_key=col.name in pk_names,
+                )
+            )
+    if not staging_columns:
+        raise ValueError("No columns selected for transfer")
+
+    Table(staging_table, staging_meta, *staging_columns)
+
+    stg_qualified = qualify_table(target_engine, target_schema, staging_table)
+    # A previous crashed attempt may have left the staging table behind.
+    _drop_table(target_engine, stg_qualified)
+    staging_meta.create_all(target_engine)
+    _add_log(app_session, job_id, LogLevel.INFO, f"Staging table '{staging_table}' created")
+    return stg_qualified
+
+
+def _publish_staging(
+    target_engine: Engine,
+    target_schema: str,
+    target_table: str,
+    staging_table: str,
+    target_col_names: list[str],
+) -> str:
+    """
+    Atomically make the staged data the target table's content.
+
+    - target missing: a single RENAME publishes the staged table.
+    - target exists: DELETE + INSERT ... SELECT inside one transaction
+      replaces its content (transactional on PostgreSQL, MySQL/InnoDB
+      and SQLite alike).
+    """
+    tgt_qualified = qualify_table(target_engine, target_schema, target_table)
+    stg_qualified = qualify_table(target_engine, target_schema, staging_table)
+
+    target_exists = inspect(target_engine).has_table(target_table, schema=target_schema or None)
+
+    with target_engine.begin() as conn:
+        if not target_exists:
+            new_name = quote_identifier(target_engine, target_table)
+            conn.execute(text(f"ALTER TABLE {stg_qualified} RENAME TO {new_name}"))
+            return "renamed"
+
+        cols = ", ".join(quote_identifier(target_engine, c) for c in target_col_names)
+        conn.execute(text(f"DELETE FROM {tgt_qualified}"))
+        conn.execute(
+            text(f"INSERT INTO {tgt_qualified} ({cols}) SELECT {cols} FROM {stg_qualified}")
+        )
+
+    _drop_table(target_engine, stg_qualified)
+    return "replaced"
+
+
+@celery_app.task(bind=True)
 def execute_transfer(self, job_id: str):
     """
     Execute a data transfer between two database connections.
 
     Process:
-    1. Load job config from app DB
-    2. Connect to source and target databases
-    3. Read source data in batches
-    4. Optionally create target table
-    5. Insert data into target with column mapping
-    6. Track progress via Celery state updates
-    7. Handle errors and update final status
+    1. Load job config and connection details from the app DB
+    2. Validate identifiers and column mappings against the reflected source
+    3. Create a per-job staging table on the target
+    4. Stream source rows into the staging table in batches, checking for
+       cancellation between batches
+    5. Publish the staged data atomically on success; drop it otherwise
     """
     app_session = _get_app_session()
     source_engine = None
     target_engine = None
+    staging_qualified = None
+    target_engine_row = None
 
     try:
         # Load the transfer job
@@ -122,7 +327,7 @@ def execute_transfer(self, job_id: str):
         )
         _add_log(app_session, job_id, LogLevel.INFO, "Transfer started")
 
-        # Load source connection details
+        # Load connection details
         source_conn = (
             app_session.execute(
                 text("SELECT * FROM database_connections WHERE id = :id"),
@@ -144,7 +349,7 @@ def execute_transfer(self, job_id: str):
         if not source_conn or not target_conn:
             raise ValueError("Source or target connection not found")
 
-        # Build connection URLs
+        # Build connection URLs and engines
         source_url = _build_url(
             source_conn["db_type"],
             decrypt_value(source_conn["host"]),
@@ -162,27 +367,18 @@ def execute_transfer(self, job_id: str):
             decrypt_value(target_conn["password"]),
         )
 
-        source_engine = create_engine(source_url, pool_pre_ping=True)
-        target_engine = create_engine(target_url, pool_pre_ping=True)
+        source_engine = _create_remote_engine(source_conn, source_url, streaming=True)
+        target_engine = _create_remote_engine(target_conn, target_url)
 
         _add_log(app_session, job_id, LogLevel.INFO, "Connected to source and target databases")
 
         # Determine schema
-        source_schema = job["source_schema"]
-        target_schema = job["target_schema"]
-
-        if not source_schema:
-            source_schema = (
-                "public"
-                if source_conn["db_type"] == DatabaseType.POSTGRESQL.value
-                else source_conn["database_name"]
-            )
-        if not target_schema:
-            target_schema = (
-                "public"
-                if target_conn["db_type"] == DatabaseType.POSTGRESQL.value
-                else target_conn["database_name"]
-            )
+        source_schema = job["source_schema"] or _default_schema(
+            source_conn["db_type"], source_conn["database_name"]
+        )
+        target_schema = job["target_schema"] or _default_schema(
+            target_conn["db_type"], target_conn["database_name"]
+        )
 
         source_table = job["source_table"]
         target_table = job["target_table"]
@@ -199,9 +395,7 @@ def execute_transfer(self, job_id: str):
         source_inspector = inspect(source_engine)
         source_columns = source_inspector.get_columns(source_table, schema=source_schema)
 
-        # Build qualified table names with dialect-aware quoting
         src_qualified = qualify_table(source_engine, source_schema, source_table)
-        tgt_qualified = qualify_table(target_engine, target_schema, target_table)
 
         # Get total row count
         with source_engine.connect() as src_conn:
@@ -240,43 +434,31 @@ def execute_transfer(self, job_id: str):
             select_cols = source_col_names
             target_col_names = source_col_names
 
-        # Create target table if requested
-        if job["create_target_table"]:
-            try:
-                # Reflect source table and create equivalent in target
-                source_meta = MetaData()
-                source_meta.reflect(bind=source_engine, schema=source_schema, only=[source_table])
-                src_table_obj = source_meta.tables.get(
-                    f"{source_schema}.{source_table}" if source_schema else source_table
-                )
+        # Every transfer stages its data first; auto-create additionally
+        # promises the final table even when it does not exist yet.
+        target_exists = inspect(target_engine).has_table(target_table, schema=target_schema or None)
+        if not job["create_target_table"] and not target_exists:
+            raise ValueError(
+                f"Target table '{target_table}' does not exist and create_target_table is disabled"
+            )
 
-                if src_table_obj is not None:
-                    # Create target table with mapped column names
-                    target_meta = MetaData(schema=target_schema)
-                    target_columns = []
-                    for col in src_table_obj.columns:
-                        if col.name in select_cols:
-                            new_name = column_mappings.get(col.name, col.name)
-                            target_columns.append(Column(new_name, col.type, nullable=col.nullable))
+        staging_table = _staging_table_name(target_table, str(job_id))
+        staging_qualified = _create_staging_table(
+            source_engine,
+            target_engine,
+            source_schema,
+            target_schema,
+            source_table,
+            staging_table,
+            select_cols,
+            column_mappings,
+            job_id,
+            app_session,
+        )
+        # Remember for cleanup paths
+        target_engine_row = target_engine
 
-                    if target_columns:
-                        Table(target_table, target_meta, *target_columns)
-                        target_meta.create_all(target_engine, checkfirst=True)
-                        _add_log(
-                            app_session,
-                            job_id,
-                            LogLevel.INFO,
-                            f"Target table '{target_table}' created/verified",
-                        )
-            except Exception as e:
-                _add_log(
-                    app_session,
-                    job_id,
-                    LogLevel.WARNING,
-                    f"Could not auto-create target table: {str(e)[:200]}",
-                )
-
-        # Transfer data in batches
+        # Transfer data into the staging table in batches
         batch_size = settings.TRANSFER_BATCH_SIZE
         transferred = 0
 
@@ -292,16 +474,16 @@ def execute_transfer(self, job_id: str):
             result = src_conn.execution_options(stream_results=True).execute(text(select_sql))
 
             batch = []
+            cancelled = False
             for row in result:
                 row_dict = {}
                 for i, col_name in enumerate(target_col_names):
-                    val = row[i]
-                    row_dict[col_name] = val
+                    row_dict[col_name] = row[i]
                 batch.append(row_dict)
 
                 if len(batch) >= batch_size:
-                    # Insert batch into target
-                    _insert_batch(target_engine, tgt_qualified, target_col_names, batch)
+                    # Insert batch into staging
+                    _insert_batch(target_engine, staging_qualified, target_col_names, batch)
                     transferred += len(batch)
                     batch = []
 
@@ -326,55 +508,157 @@ def execute_transfer(self, job_id: str):
                             app_session,
                             job_id,
                             LogLevel.INFO,
-                            f"Transferred {transferred}/{total_rows} rows ({percent:.1f}%)",
+                            f"Staged {transferred}/{total_rows} rows ({percent:.1f}%)",
                         )
 
-            # Insert remaining rows
-            if batch:
-                _insert_batch(target_engine, tgt_qualified, target_col_names, batch)
+                    # Cancellation is cooperative: check between batches.
+                    if _current_status(app_session, job_id) != TransferStatus.RUNNING.value:
+                        cancelled = True
+                        break
+
+            if not cancelled and batch:
+                _insert_batch(target_engine, staging_qualified, target_col_names, batch)
                 transferred += len(batch)
 
-        # Mark as completed
-        _set_status(
+            if cancelled:
+                _add_log(
+                    app_session,
+                    job_id,
+                    LogLevel.WARNING,
+                    "Cancellation detected; staged data discarded, target untouched",
+                )
+                return {"status": TransferStatus.CANCELLED.value, "transferred_rows": transferred}
+
+        # Final cancel check before publishing minimises the race window
+        if _current_status(app_session, job_id) != TransferStatus.RUNNING.value:
+            _add_log(
+                app_session,
+                job_id,
+                LogLevel.WARNING,
+                "Cancellation detected before publish; staged data discarded",
+            )
+            return {"status": TransferStatus.CANCELLED.value, "transferred_rows": transferred}
+
+        publish_mode = _publish_staging(
+            target_engine, target_schema, target_table, staging_table, target_col_names
+        )
+        staging_qualified = None  # published: staging no longer exists to clean up
+
+        # Guarded completion: never overwrite a concurrent cancellation.
+        if not _set_status_if(
             app_session,
             job_id,
+            TransferStatus.RUNNING,
             TransferStatus.COMPLETED,
             transferred_rows=transferred,
             completed_at=datetime.now(UTC),
-        )
+        ):
+            _add_log(
+                app_session,
+                job_id,
+                LogLevel.WARNING,
+                "Transfer finished but the job was cancelled concurrently; "
+                "the published data was kept",
+            )
+            return {"status": TransferStatus.CANCELLED.value, "transferred_rows": transferred}
 
         _add_log(
             app_session,
             job_id,
             LogLevel.INFO,
-            f"Transfer completed: {transferred} rows transferred",
+            f"Target table '{target_table}' published ({publish_mode}); "
+            f"{transferred} rows transferred",
         )
 
         return {"status": TransferStatus.COMPLETED.value, "transferred_rows": transferred}
 
     except Exception as e:
-        # Mark as failed
+        # Mark as failed — guarded, so an already-cancelled job stays cancelled.
         error_msg = str(e)[:500]
         try:
-            _set_status(
+            if _set_status_if(
                 app_session,
                 job_id,
+                TransferStatus.RUNNING,
                 TransferStatus.FAILED,
                 error_message=error_msg,
                 completed_at=datetime.now(UTC),
-            )
-            _add_log(app_session, job_id, LogLevel.ERROR, f"Transfer failed: {error_msg}")
+            ):
+                _add_log(app_session, job_id, LogLevel.ERROR, f"Transfer failed: {error_msg}")
+            else:
+                _add_log(
+                    app_session,
+                    job_id,
+                    LogLevel.WARNING,
+                    f"Transfer aborted after cancellation: {error_msg[:200]}",
+                )
         except Exception:
-            pass
+            logger.exception("Failed to record failure for transfer %s", job_id)
 
         raise
 
     finally:
+        if staging_qualified is not None and target_engine_row is not None:
+            try:
+                _drop_table(target_engine_row, staging_qualified)
+            except Exception:
+                logger.warning(
+                    "Could not drop staging table for transfer %s (table %s)",
+                    job_id,
+                    staging_qualified,
+                )
         if source_engine is not None:
             source_engine.dispose()
         if target_engine is not None:
             target_engine.dispose()
         app_session.close()
+
+
+@celery_app.task(name="workers.reap_stale_transfers")
+def reap_stale_transfers():
+    """
+    Fail jobs whose worker died or whose dispatch never reached the broker.
+
+    Runs periodically via Celery Beat. Without it, a broker outage leaves
+    jobs PENDING forever and a crashed worker leaves them RUNNING forever.
+    """
+    session = _get_app_session()
+    now = datetime.now(UTC)
+    try:
+        stale_running = cast(
+            "CursorResult",
+            session.execute(
+                text(
+                    "UPDATE transfer_jobs SET status = 'failed', "
+                    "error_message = 'Worker stopped responding; job reaped', "
+                    "completed_at = :now WHERE status = 'running' AND started_at < :cutoff"
+                ),
+                {"now": now, "cutoff": now - STALE_RUNNING_AFTER},
+            ),
+        ).rowcount
+
+        stale_pending = cast(
+            "CursorResult",
+            session.execute(
+                text(
+                    "UPDATE transfer_jobs SET status = 'failed', "
+                    "error_message = 'Transfer was never dispatched; job reaped', "
+                    "completed_at = :now WHERE status = 'pending' AND created_at < :cutoff"
+                ),
+                {"now": now, "cutoff": now - STALE_PENDING_AFTER},
+            ),
+        ).rowcount
+
+        session.commit()
+        if stale_running or stale_pending:
+            logger.info(
+                "Reaped %d stale running and %d stale pending transfers",
+                stale_running,
+                stale_pending,
+            )
+        return {"stale_running": stale_running, "stale_pending": stale_pending}
+    finally:
+        session.close()
 
 
 def _insert_batch(engine, qualified_table, column_names, batch):
