@@ -52,9 +52,7 @@ async def test_credentials_are_encrypted_at_rest(client, auth_headers, session_f
     async with session_factory() as session:
         row = (
             await session.execute(
-                select(DatabaseConnection).where(
-                    DatabaseConnection.id == UUID(created["id"])
-                )
+                select(DatabaseConnection).where(DatabaseConnection.id == UUID(created["id"]))
             )
         ).scalar_one()
 
@@ -72,9 +70,7 @@ async def test_connection_url_escapes_special_characters(client, auth_headers, s
     async with session_factory() as session:
         row = (
             await session.execute(
-                select(DatabaseConnection).where(
-                    DatabaseConnection.id == UUID(created["id"])
-                )
+                select(DatabaseConnection).where(DatabaseConnection.id == UUID(created["id"]))
             )
         ).scalar_one()
         url = ConnectionService(session).build_url(row)
@@ -99,9 +95,7 @@ async def test_ssl_is_applied_to_connect_args(client, auth_headers, session_fact
     async with session_factory() as session:
         row = (
             await session.execute(
-                select(DatabaseConnection).where(
-                    DatabaseConnection.id == UUID(created["id"])
-                )
+                select(DatabaseConnection).where(DatabaseConnection.id == UUID(created["id"]))
             )
         ).scalar_one()
         args = ConnectionService.connect_args(row)
@@ -122,9 +116,7 @@ async def test_other_users_cannot_read_a_connection(client, auth_headers):
     )
     other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
 
-    response = await client.get(
-        f"/api/connections/{created['id']}", headers=other_headers
-    )
+    response = await client.get(f"/api/connections/{created['id']}", headers=other_headers)
     assert response.status_code == 404
 
     listing = await client.get("/api/connections", headers=other_headers)
@@ -150,9 +142,7 @@ async def test_deleting_a_connection_with_transfers_is_blocked(
         )
         await session.commit()
 
-    response = await client.delete(
-        f"/api/connections/{created['id']}", headers=auth_headers
-    )
+    response = await client.delete(f"/api/connections/{created['id']}", headers=auth_headers)
 
     assert response.status_code == 409
     assert "transfer" in response.json()["message"].lower()
@@ -161,9 +151,7 @@ async def test_deleting_a_connection_with_transfers_is_blocked(
 async def test_deleting_an_unused_connection_succeeds(client, auth_headers):
     created = await _create_connection(client, auth_headers)
 
-    response = await client.delete(
-        f"/api/connections/{created['id']}", headers=auth_headers
-    )
+    response = await client.delete(f"/api/connections/{created['id']}", headers=auth_headers)
 
     assert response.status_code == 200
     listing = await client.get("/api/connections", headers=auth_headers)

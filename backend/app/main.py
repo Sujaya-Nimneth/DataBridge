@@ -3,16 +3,16 @@ DataBridge - Data Connectivity & Transfer Platform
 Main FastAPI application entry point.
 """
 
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth, connections, discovery, monitoring, transfers
 from app.config import settings
-from app.database import init_db, close_db
+from app.database import close_db, init_db
 from app.middleware.error_handler import register_error_handlers
-from app.api import auth, connections, discovery, transfers, monitoring
 
 # Configure logging
 logging.basicConfig(

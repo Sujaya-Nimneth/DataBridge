@@ -3,20 +3,24 @@ Transfer service: orchestrates data transfer operations between database connect
 Dispatches background tasks and tracks progress.
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.transfer import TransferJob, TransferLog
 from app.enums import LogLevel, TransferStatus
-from app.sql_utils import UnsafeFilterError, validate_filter_query
-from app.schemas.transfer import TransferCreate, TransferResponse, TransferLogResponse, TransferProgress
+from app.models.transfer import TransferJob, TransferLog
+from app.schemas.transfer import (
+    TransferCreate,
+    TransferLogResponse,
+    TransferProgress,
+    TransferResponse,
+)
 from app.services.connection_service import ConnectionService
-from fastapi import HTTPException, status
+from app.sql_utils import UnsafeFilterError, validate_filter_query
 
 
 class TransferService:
@@ -26,24 +30,16 @@ class TransferService:
         self.db = db
         self.conn_service = ConnectionService(db)
 
-    async def create_transfer(
-        self, user_id: UUID, data: TransferCreate
-    ) -> TransferResponse:
+    async def create_transfer(self, user_id: UUID, data: TransferCreate) -> TransferResponse:
         """Create and optionally start a transfer job."""
         # Validate source and target connections exist and belong to user
         try:
             filter_query = validate_filter_query(data.filter_query)
         except UnsafeFilterError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
-        source = await self.conn_service.get_connection_model(
-            data.source_connection_id, user_id
-        )
-        target = await self.conn_service.get_connection_model(
-            data.target_connection_id, user_id
-        )
+        source = await self.conn_service.get_connection_model(data.source_connection_id, user_id)
+        target = await self.conn_service.get_connection_model(data.target_connection_id, user_id)
 
         # Create the transfer job
         job = TransferJob(
@@ -75,10 +71,11 @@ class TransferService:
         # Dispatch Celery task
         try:
             from app.workers.transfer_tasks import execute_transfer
+
             task = execute_transfer.delay(str(job.id))
             job.celery_task_id = task.id
             job.status = TransferStatus.RUNNING
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
             await self.db.flush()
         except Exception as e:
             # If Celery is not available, mark as pending
@@ -95,7 +92,7 @@ class TransferService:
     async def list_transfers(
         self,
         user_id: UUID,
-        status_filter: Optional[str] = None,
+        status_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[TransferResponse]:
@@ -119,9 +116,7 @@ class TransferService:
         jobs = result.scalars().all()
         return [self._to_response(j) for j in jobs]
 
-    async def get_transfer(
-        self, transfer_id: UUID, user_id: UUID
-    ) -> TransferResponse:
+    async def get_transfer(self, transfer_id: UUID, user_id: UUID) -> TransferResponse:
         """Get detailed transfer job info including progress."""
         job = await self._get_job_or_404(transfer_id, user_id)
         return self._to_response(job, include_progress=True)
@@ -139,11 +134,9 @@ class TransferService:
             .order_by(TransferLog.timestamp.asc())
         )
         logs = result.scalars().all()
-        return [TransferLogResponse.model_validate(l) for l in logs]
+        return [TransferLogResponse.model_validate(entry) for entry in logs]
 
-    async def cancel_transfer(
-        self, transfer_id: UUID, user_id: UUID
-    ) -> TransferResponse:
+    async def cancel_transfer(self, transfer_id: UUID, user_id: UUID) -> TransferResponse:
         """Cancel a running transfer job."""
         job = await self._get_job_or_404(transfer_id, user_id)
 
@@ -157,12 +150,13 @@ class TransferService:
         if job.celery_task_id:
             try:
                 from app.workers.celery_app import celery_app
+
                 celery_app.control.revoke(job.celery_task_id, terminate=True)
             except Exception:
                 pass
 
         job.status = TransferStatus.CANCELLED
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
 
         log = TransferLog(
             transfer_job_id=job.id,
@@ -174,9 +168,7 @@ class TransferService:
 
         return self._to_response(job)
 
-    async def _get_job_or_404(
-        self, transfer_id: UUID, user_id: UUID
-    ) -> TransferJob:
+    async def _get_job_or_404(self, transfer_id: UUID, user_id: UUID) -> TransferJob:
         """Get transfer job or raise 404."""
         result = await self.db.execute(
             select(TransferJob)
@@ -197,9 +189,7 @@ class TransferService:
             )
         return job
 
-    def _to_response(
-        self, job: TransferJob, include_progress: bool = False
-    ) -> TransferResponse:
+    def _to_response(self, job: TransferJob, include_progress: bool = False) -> TransferResponse:
         """Convert model to response using already-loaded connections."""
         source_name = job.source_connection.name if job.source_connection else None
         target_name = job.target_connection.name if job.target_connection else None
@@ -213,7 +203,7 @@ class TransferService:
             elapsed = None
             estimated_remaining = None
             if job.started_at:
-                elapsed = (datetime.now(timezone.utc) - job.started_at).total_seconds()
+                elapsed = (datetime.now(UTC) - job.started_at).total_seconds()
                 if percentage > 0:
                     estimated_remaining = (elapsed / percentage) * (100 - percentage)
 
@@ -223,7 +213,9 @@ class TransferService:
                 transferred_rows=job.transferred_rows,
                 percentage=round(percentage, 1),
                 elapsed_seconds=round(elapsed, 1) if elapsed else None,
-                estimated_remaining_seconds=round(estimated_remaining, 1) if estimated_remaining else None,
+                estimated_remaining_seconds=(
+                    round(estimated_remaining, 1) if estimated_remaining else None
+                ),
             )
 
         return TransferResponse(

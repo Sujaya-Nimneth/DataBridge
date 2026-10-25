@@ -3,36 +3,37 @@ Security utilities: JWT token management, password hashing, and Fernet encryptio
 for protecting stored database credentials.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
-from cryptography.fernet import Fernet, InvalidToken
-import jwt
-from jwt.exceptions import InvalidTokenError
 import bcrypt
+import jwt
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 
 # --- Password Hashing ---
 
+
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
     salt = bcrypt.gensalt()
-    pwd_bytes = password.encode('utf-8')
+    pwd_bytes = password.encode("utf-8")
     hashed = bcrypt.hashpw(pwd_bytes, salt)
-    return hashed.decode('utf-8')
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a bcrypt hash."""
-    plain_bytes = plain_password.encode('utf-8')
-    hashed_bytes = hashed_password.encode('utf-8')
+    plain_bytes = plain_password.encode("utf-8")
+    hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(plain_bytes, hashed_bytes)
 
 
@@ -41,10 +42,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 security_scheme = HTTPBearer()
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a JWT access token."""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire, "type": "access"})
@@ -54,7 +55,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def create_refresh_token(data: dict) -> str:
     """Create a JWT refresh token with longer expiry."""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -62,16 +63,14 @@ def create_refresh_token(data: dict) -> str:
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token."""
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
-        return payload
-    except InvalidTokenError:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return cast(dict, payload)
+    except InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
 
 async def get_current_user(
@@ -103,11 +102,11 @@ async def get_current_user(
 
     try:
         user_id = UUID(subject)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
-        )
+        ) from exc
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -122,6 +121,7 @@ async def get_current_user(
 
 
 # --- Fernet Encryption for Database Credentials ---
+
 
 def _get_fernet() -> Fernet:
     """
@@ -138,8 +138,8 @@ def _get_fernet() -> Fernet:
     except (InvalidToken, ValueError, TypeError) as exc:
         raise ValueError(
             "ENCRYPTION_KEY is not a valid Fernet key. "
-            "Generate one with: python -c \"from cryptography.fernet import "
-            "Fernet; print(Fernet.generate_key().decode())\""
+            'Generate one with: python -c "from cryptography.fernet import '
+            'Fernet; print(Fernet.generate_key().decode())"'
         ) from exc
 
 

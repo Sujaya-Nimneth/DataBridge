@@ -2,11 +2,12 @@
 Global error handling middleware for consistent API error responses.
 """
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-import traceback
 import logging
+import traceback
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,13 @@ def register_error_handlers(app: FastAPI):
         errors = []
         for error in exc.errors():
             field = " → ".join(str(loc) for loc in error["loc"])
-            errors.append({
-                "field": field,
-                "message": error["msg"],
-                "type": error["type"],
-            })
+            errors.append(
+                {
+                    "field": field,
+                    "message": error["msg"],
+                    "type": error["type"],
+                }
+            )
 
         return JSONResponse(
             status_code=422,
@@ -51,7 +54,7 @@ def register_error_handlers(app: FastAPI):
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
         """Handle unexpected exceptions."""
-        logger.error(f"Unhandled exception: {str(exc)}\n{traceback.format_exc()}")
+        logger.error(f"Unhandled exception: {exc!s}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
             content={

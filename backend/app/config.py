@@ -83,8 +83,8 @@ class Settings(BaseSettings):
         except (InvalidToken, ValueError, TypeError) as exc:
             raise ValueError(
                 "ENCRYPTION_KEY is not a valid Fernet key. Generate one with: "
-                "python -c \"from cryptography.fernet import Fernet; "
-                "print(Fernet.generate_key().decode())\""
+                'python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
             ) from exc
 
         if self.DEBUG:

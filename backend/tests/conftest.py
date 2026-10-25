@@ -17,13 +17,13 @@ os.environ.setdefault(
 )
 os.environ.setdefault("DEBUG", "true")
 
-import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
-from sqlalchemy.pool import StaticPool  # noqa: E402
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db  # noqa: E402
-from app.main import app  # noqa: E402
+from app.database import Base, get_db
+from app.main import app
 
 
 @pytest_asyncio.fixture

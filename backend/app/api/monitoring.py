@@ -2,15 +2,13 @@
 Monitoring and metrics API routes.
 """
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.services.monitoring_service import MonitoringService
 from app.security import get_current_user
+from app.services.monitoring_service import MonitoringService
 
 router = APIRouter(prefix="/monitoring", tags=["Monitoring"])
 

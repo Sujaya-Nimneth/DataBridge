@@ -1,5 +1,5 @@
-from app.models.user import User
 from app.models.connection import DatabaseConnection
 from app.models.transfer import TransferJob, TransferLog
+from app.models.user import User
 
-__all__ = ["User", "DatabaseConnection", "TransferJob", "TransferLog"]
+__all__ = ["DatabaseConnection", "TransferJob", "TransferLog", "User"]

@@ -1,0 +1,17 @@
+# Development and CI dependencies.
+# Runtime dependencies live in requirements.txt (used by the Docker image).
+-r requirements.txt
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==7.1.0
+aiosqlite==0.20.0
+httpx==0.28.1
+
+# Static analysis
+ruff==0.17.2
+mypy==2.4.0
+
+# Dependency auditing
+pip-audit==2.10.1

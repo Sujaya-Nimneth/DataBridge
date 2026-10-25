@@ -1,7 +1,5 @@
 """SQL safety helpers and enum persistence."""
 
-import enum
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
@@ -92,20 +90,20 @@ def test_models_use_lowercase_enum_labels():
     values_callable is supplied, which broke every raw-SQL status update.
     """
     assert TransferJob.__table__.c.status.type.enums == [
-        "pending", "running", "completed", "failed", "cancelled"
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
     ]
     assert TransferLog.__table__.c.level.type.enums == ["info", "warning", "error"]
-    assert DatabaseConnection.__table__.c.db_type.type.enums == [
-        "postgresql", "mysql"
-    ]
+    assert DatabaseConnection.__table__.c.db_type.type.enums == ["postgresql", "mysql"]
 
 
 def test_postgres_ddl_uses_lowercase_labels():
     from sqlalchemy.schema import CreateTable
 
-    ddl = str(
-        CreateTable(TransferJob.__table__).compile(dialect=postgresql.dialect())
-    )
+    ddl = str(CreateTable(TransferJob.__table__).compile(dialect=postgresql.dialect()))
     assert "transfer_status" in ddl
     # The label values live in the enum type, not the DDL text, so assert on
     # the type itself to keep the check meaningful.

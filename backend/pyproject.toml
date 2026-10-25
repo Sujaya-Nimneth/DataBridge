@@ -1,0 +1,53 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RET", # return conventions
+    "RUF", # ruff-specific
+    "ASYNC", # async correctness
+]
+ignore = [
+    "B008", # FastAPI dependency injection lives in default arguments
+    "SIM105", # try/except/pass is intentional in a few broad handlers
+    "SIM117", # nested with-statements read clearer for engine/session pairs
+    "UP042", # str-Enum mixins are persisted via values_callable; StrEnum churn risks subtle changes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SIM117"]
+"__init__.py" = ["F401"] # package re-exports
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+show_error_codes = true
+exclude = ["alembic/"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "redis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70

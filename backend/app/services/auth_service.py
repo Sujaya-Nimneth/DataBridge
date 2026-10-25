@@ -4,13 +4,19 @@ Authentication service: user registration, login, and token management.
 
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
-from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
-from fastapi import HTTPException, status
+from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
+from app.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
 
 
 class AuthService:
@@ -22,9 +28,7 @@ class AuthService:
     async def register(self, data: UserCreate) -> TokenResponse:
         """Register a new user and return tokens."""
         # Check if email already exists
-        result = await self.db.execute(
-            select(User).where(User.email == data.email)
-        )
+        result = await self.db.execute(select(User).where(User.email == data.email))
         if result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -51,9 +55,7 @@ class AuthService:
 
     async def login(self, data: UserLogin) -> TokenResponse:
         """Authenticate user and return tokens."""
-        result = await self.db.execute(
-            select(User).where(User.email == data.email)
-        )
+        result = await self.db.execute(select(User).where(User.email == data.email))
         user = result.scalar_one_or_none()
 
         if not user or not verify_password(data.password, user.hashed_password):
@@ -86,9 +88,7 @@ class AuthService:
             )
 
         user_id = payload.get("sub")
-        result = await self.db.execute(
-            select(User).where(User.id == UUID(user_id))
-        )
+        result = await self.db.execute(select(User).where(User.id == UUID(user_id)))
         user = result.scalar_one_or_none()
 
         if not user or not user.is_active:
@@ -106,9 +106,7 @@ class AuthService:
 
     async def get_user(self, user_id: UUID) -> UserResponse:
         """Get user profile by ID."""
-        result = await self.db.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(

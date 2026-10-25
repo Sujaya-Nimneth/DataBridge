@@ -1,7 +1,5 @@
 """End-to-end smoke coverage of the monitoring and transfer APIs."""
 
-from uuid import UUID
-
 import pytest
 from sqlalchemy import select
 
@@ -84,14 +82,10 @@ async def test_metrics_returns_seven_days(client, auth_headers, session_factory)
     assert len(body["daily_transfers"]) == 7
     assert sum(day["count"] for day in body["daily_transfers"]) == 1
     assert body["status_counts"]["completed"] == 1
-    assert set(body["status_counts"]) == {
-        "pending", "running", "completed", "failed", "cancelled"
-    }
+    assert set(body["status_counts"]) == {"pending", "running", "completed", "failed", "cancelled"}
 
 
-async def test_activity_feed_includes_connection_names(
-    client, auth_headers, session_factory
-):
+async def test_activity_feed_includes_connection_names(client, auth_headers, session_factory):
     await _seed_transfer(session_factory)
 
     response = await client.get("/api/monitoring/activity", headers=auth_headers)
@@ -103,9 +97,7 @@ async def test_activity_feed_includes_connection_names(
     assert "Target/orders" in activity[0]["description"]
 
 
-async def test_transfer_list_returns_connection_names(
-    client, auth_headers, session_factory
-):
+async def test_transfer_list_returns_connection_names(client, auth_headers, session_factory):
     await _seed_transfer(session_factory)
 
     response = await client.get("/api/transfers", headers=auth_headers)
@@ -120,9 +112,7 @@ async def test_transfer_list_returns_connection_names(
 async def test_transfer_logs_are_ordered(client, auth_headers, session_factory):
     job_id = await _seed_transfer(session_factory)
 
-    response = await client.get(
-        f"/api/transfers/{job_id}/logs", headers=auth_headers
-    )
+    response = await client.get(f"/api/transfers/{job_id}/logs", headers=auth_headers)
 
     assert response.status_code == 200
     logs = response.json()
@@ -130,9 +120,7 @@ async def test_transfer_logs_are_ordered(client, auth_headers, session_factory):
     assert logs[0]["level"] == "info"
 
 
-async def test_other_users_cannot_read_a_transfer(
-    client, auth_headers, session_factory
-):
+async def test_other_users_cannot_read_a_transfer(client, auth_headers, session_factory):
     job_id = await _seed_transfer(session_factory)
 
     other = await client.post(
@@ -147,17 +135,14 @@ async def test_other_users_cannot_read_a_transfer(
 
     assert (await client.get(f"/api/transfers/{job_id}", headers=headers)).status_code == 404
     assert (await client.get(f"/api/transfers/{job_id}/logs", headers=headers)).status_code == 404
-    assert (await client.post(f"/api/transfers/{job_id}/cancel", headers=headers)).status_code == 404
+    cancel = await client.post(f"/api/transfers/{job_id}/cancel", headers=headers)
+    assert cancel.status_code == 404
 
 
-async def test_cancelling_a_completed_transfer_is_rejected(
-    client, auth_headers, session_factory
-):
+async def test_cancelling_a_completed_transfer_is_rejected(client, auth_headers, session_factory):
     job_id = await _seed_transfer(session_factory)
 
-    response = await client.post(
-        f"/api/transfers/{job_id}/cancel", headers=auth_headers
-    )
+    response = await client.post(f"/api/transfers/{job_id}/cancel", headers=auth_headers)
 
     assert response.status_code == 400
 

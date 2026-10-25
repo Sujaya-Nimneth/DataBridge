@@ -2,7 +2,6 @@
 Data discovery API routes for exploring remote database structures.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -10,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.discovery import SchemaInfo, TableInfo, ColumnInfo, DataPreview
-from app.services.discovery_service import DiscoveryService
+from app.schemas.discovery import ColumnInfo, DataPreview, SchemaInfo, TableInfo
 from app.security import get_current_user
+from app.services.discovery_service import DiscoveryService
 
 router = APIRouter(prefix="/discovery", tags=["Data Discovery"])
 
@@ -35,7 +34,7 @@ async def list_schemas(
 @router.get("/{connection_id}/tables", response_model=list[TableInfo])
 async def list_tables(
     connection_id: UUID,
-    schema: Optional[str] = Query(None, description="Schema name (defaults to 'public' for PG)"),
+    schema: str | None = Query(None, description="Schema name (defaults to 'public' for PG)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -52,7 +51,7 @@ async def list_tables(
 async def get_columns(
     connection_id: UUID,
     table_name: str,
-    schema: Optional[str] = Query(None),
+    schema: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -70,10 +69,10 @@ async def get_columns(
 async def preview_data(
     connection_id: UUID,
     table_name: str,
-    schema: Optional[str] = Query(None),
+    schema: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    filter_query: Optional[str] = Query(None, description="SQL WHERE clause for filtering"),
+    filter_query: str | None = Query(None, description="SQL WHERE clause for filtering"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -92,7 +91,7 @@ async def preview_data(
 async def get_row_count(
     connection_id: UUID,
     table_name: str,
-    schema: Optional[str] = Query(None),
+    schema: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -4,23 +4,26 @@ dynamic engine creation, and connectivity testing.
 """
 
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import create_engine, text, select, func, or_
+from fastapi import HTTPException, status
+from sqlalchemy import create_engine, func, or_, select, text
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import NullPool
 
+from app.enums import ConnectionStatus, DatabaseType
 from app.models.connection import DatabaseConnection
 from app.models.transfer import TransferJob
-from app.enums import ConnectionStatus, DatabaseType
-from app.schemas.connection import ConnectionCreate, ConnectionUpdate, ConnectionResponse, ConnectionTest
-from app.security import encrypt_value, decrypt_value
-from app.config import settings
+from app.schemas.connection import (
+    ConnectionCreate,
+    ConnectionResponse,
+    ConnectionTest,
+    ConnectionUpdate,
+)
+from app.security import decrypt_value, encrypt_value
 from app.services.engine_cache import engine_cache
-from fastapi import HTTPException, status
 
 
 class ConnectionService:
@@ -54,20 +57,17 @@ class ConnectionService:
     def connect_args(conn: DatabaseConnection, timeout: int = 10) -> dict:
         """Driver-specific connection arguments, including SSL when enabled."""
         if conn.db_type == DatabaseType.POSTGRESQL:
-            args = {"connect_timeout": timeout}
+            args: dict[str, object] = {"connect_timeout": timeout}
             if conn.ssl_enabled:
                 args["sslmode"] = "require"
             return args
 
-        args = {"connect_timeout": timeout}
+        mysql_args: dict[str, object] = {"connect_timeout": timeout}
         if conn.ssl_enabled:
-            args["ssl"] = {}
-        return args
+            mysql_args["ssl"] = {}
+        return mysql_args
 
-
-    async def create_connection(
-        self, user_id: UUID, data: ConnectionCreate
-    ) -> ConnectionResponse:
+    async def create_connection(self, user_id: UUID, data: ConnectionCreate) -> ConnectionResponse:
         """Create a new database connection with encrypted credentials."""
         conn = DatabaseConnection(
             user_id=user_id,
@@ -96,9 +96,7 @@ class ConnectionService:
         connections = result.scalars().all()
         return [self._to_response(c) for c in connections]
 
-    async def get_connection(
-        self, connection_id: UUID, user_id: UUID
-    ) -> ConnectionResponse:
+    async def get_connection(self, connection_id: UUID, user_id: UUID) -> ConnectionResponse:
         """Get a specific connection by ID."""
         conn = await self._get_connection_or_404(connection_id, user_id)
         return self._to_response(conn)
@@ -133,9 +131,7 @@ class ConnectionService:
         self.invalidate_engine(connection_id)
         return self._to_response(conn)
 
-    async def delete_connection(
-        self, connection_id: UUID, user_id: UUID
-    ) -> dict:
+    async def delete_connection(self, connection_id: UUID, user_id: UUID) -> dict:
         """
         Delete a connection.
 
@@ -166,9 +162,7 @@ class ConnectionService:
         self.invalidate_engine(connection_id)
         return {"message": "Connection deleted successfully"}
 
-    async def test_connection(
-        self, connection_id: UUID, user_id: UUID
-    ) -> ConnectionTest:
+    async def test_connection(self, connection_id: UUID, user_id: UUID) -> ConnectionTest:
         """Test database connectivity and update status."""
         conn = await self._get_connection_or_404(connection_id, user_id)
         engine = None
@@ -187,7 +181,7 @@ class ConnectionService:
             latency = (time.time() - start_time) * 1000  # ms
 
             # Update connection status
-            conn.last_tested_at = datetime.now(timezone.utc)
+            conn.last_tested_at = datetime.now(UTC)
             conn.last_test_status = ConnectionStatus.SUCCESS
             conn.last_test_message = f"Connected successfully ({latency:.1f}ms)"
             await self.db.flush()
@@ -199,7 +193,7 @@ class ConnectionService:
             )
 
         except Exception as e:
-            conn.last_tested_at = datetime.now(timezone.utc)
+            conn.last_tested_at = datetime.now(UTC)
             conn.last_test_status = ConnectionStatus.FAILED
             conn.last_test_message = str(e)[:500]
             await self.db.flush()
@@ -212,9 +206,7 @@ class ConnectionService:
             if engine is not None:
                 engine.dispose()
 
-    async def get_connection_model(
-        self, connection_id: UUID, user_id: UUID
-    ) -> DatabaseConnection:
+    async def get_connection_model(self, connection_id: UUID, user_id: UUID) -> DatabaseConnection:
         """Get the raw connection model (for internal use by other services)."""
         return await self._get_connection_or_404(connection_id, user_id)
 

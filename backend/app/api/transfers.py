@@ -2,7 +2,6 @@
 Data transfer API routes.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -10,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.transfer import TransferCreate, TransferResponse, TransferLogResponse
-from app.services.transfer_service import TransferService
+from app.schemas.transfer import TransferCreate, TransferLogResponse, TransferResponse
 from app.security import get_current_user
+from app.services.transfer_service import TransferService
 
 router = APIRouter(prefix="/transfers", tags=["Data Transfers"])
 
@@ -36,7 +35,7 @@ async def create_transfer(
 
 @router.get("", response_model=list[TransferResponse])
 async def list_transfers(
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),

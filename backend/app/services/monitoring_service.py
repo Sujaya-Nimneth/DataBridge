@@ -3,7 +3,7 @@ Monitoring service: aggregates platform metrics, connection health,
 transfer history, and activity feeds.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import and_, case, func, select
@@ -22,7 +22,7 @@ class MonitoringService:
 
     async def get_dashboard_stats(self, user_id: UUID) -> dict:
         """Get aggregated dashboard statistics for a user in a single query."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         transfer_row = (
@@ -95,8 +95,7 @@ class MonitoringService:
                     func.count(
                         case(
                             (
-                                DatabaseConnection.last_test_status
-                                == ConnectionStatus.SUCCESS,
+                                DatabaseConnection.last_test_status == ConnectionStatus.SUCCESS,
                                 1,
                             )
                         )
@@ -107,9 +106,7 @@ class MonitoringService:
 
         finished = transfer_row.completed_total + transfer_row.failed_total
         success_rate = (
-            round((transfer_row.completed_total / finished) * 100, 1)
-            if finished
-            else 0.0
+            round((transfer_row.completed_total / finished) * 100, 1) if finished else 0.0
         )
 
         return {
@@ -138,9 +135,7 @@ class MonitoringService:
                 "name": c.name,
                 "db_type": c.db_type.value,
                 "status": c.last_test_status.value,
-                "last_tested_at": (
-                    c.last_tested_at.isoformat() if c.last_tested_at else None
-                ),
+                "last_tested_at": (c.last_tested_at.isoformat() if c.last_tested_at else None),
                 "message": c.last_test_message,
             }
             for c in connections
@@ -181,10 +176,8 @@ class MonitoringService:
 
     async def get_metrics(self, user_id: UUID) -> dict:
         """Get operational metrics for the user with aggregate queries."""
-        now = datetime.now(timezone.utc)
-        window_start = (now - timedelta(days=6)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        now = datetime.now(UTC)
+        window_start = (now - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Transfers by status in one pass
         status_rows = (
@@ -196,8 +189,7 @@ class MonitoringService:
         ).all()
         counts_by_status = {status.value: count for status, count in status_rows}
         status_counts = {
-            status.value: counts_by_status.get(status.value, 0)
-            for status in TransferStatus
+            status.value: counts_by_status.get(status.value, 0) for status in TransferStatus
         }
 
         # Daily buckets for the last 7 days in one pass. date_trunc is
@@ -232,8 +224,7 @@ class MonitoringService:
         # Average duration computed in the database
         if dialect == "sqlite":
             duration_seconds = (
-                func.julianday(TransferJob.completed_at)
-                - func.julianday(TransferJob.started_at)
+                func.julianday(TransferJob.completed_at) - func.julianday(TransferJob.started_at)
             ) * 86400.0
         else:
             duration_seconds = func.extract(

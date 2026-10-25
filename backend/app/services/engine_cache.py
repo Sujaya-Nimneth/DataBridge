@@ -54,9 +54,7 @@ class EngineCache:
                 existing.engine.dispose()
 
             while len(self._entries) >= self._max_entries:
-                oldest_key = min(
-                    self._entries, key=lambda k: self._entries[k].created_at
-                )
+                oldest_key = min(self._entries, key=lambda k: self._entries[k].created_at)
                 self._entries.pop(oldest_key).engine.dispose()
 
             self._entries[key] = _Entry(

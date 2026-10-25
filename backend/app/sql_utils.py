@@ -40,9 +40,7 @@ def validate_filter_query(filter_query: str | None) -> str | None:
         return None
 
     if len(candidate) > _MAX_FILTER_LENGTH:
-        raise UnsafeFilterError(
-            f"Filter is too long (max {_MAX_FILTER_LENGTH} characters)"
-        )
+        raise UnsafeFilterError(f"Filter is too long (max {_MAX_FILTER_LENGTH} characters)")
 
     if any(token in candidate for token in _FORBIDDEN_TOKENS):
         raise UnsafeFilterError("Filter contains a disallowed character sequence")

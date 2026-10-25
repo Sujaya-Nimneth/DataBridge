@@ -4,6 +4,7 @@ Uses Redis as both broker and result backend.
 """
 
 from celery import Celery
+
 from app.config import settings
 
 celery_app = Celery(
@@ -19,22 +20,17 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-
     # Timezone
     timezone="UTC",
     enable_utc=True,
-
     # Result expiration (24 hours)
     result_expires=86400,
-
     # Task execution limits
-    task_soft_time_limit=3600,   # 1 hour soft limit
-    task_time_limit=3900,         # 1 hour 5 min hard limit
-
+    task_soft_time_limit=3600,  # 1 hour soft limit
+    task_time_limit=3900,  # 1 hour 5 min hard limit
     # Retry policy
     task_acks_late=True,
     worker_prefetch_multiplier=1,
-
     # Track task state
     task_track_started=True,
 )

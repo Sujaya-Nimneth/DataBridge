@@ -9,9 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.connection import ConnectionCreate, ConnectionUpdate, ConnectionResponse, ConnectionTest
-from app.services.connection_service import ConnectionService
+from app.schemas.connection import (
+    ConnectionCreate,
+    ConnectionResponse,
+    ConnectionTest,
+    ConnectionUpdate,
+)
 from app.security import get_current_user
+from app.services.connection_service import ConnectionService
 
 router = APIRouter(prefix="/connections", tags=["Connections"])
 

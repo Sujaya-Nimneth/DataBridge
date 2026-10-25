@@ -4,7 +4,7 @@ Credentials are encrypted at rest using Fernet symmetric encryption.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,9 +22,7 @@ class DatabaseConnection(Base):
     __tablename__ = "database_connections"
     __table_args__ = (Index("ix_database_connections_user_id", "user_id"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -41,9 +39,7 @@ class DatabaseConnection(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Connection test tracking
-    last_tested_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_test_status: Mapped[ConnectionStatus] = mapped_column(
         enum_column(ConnectionStatus, "connection_status"),
         default=ConnectionStatus.UNKNOWN,
@@ -52,12 +48,12 @@ class DatabaseConnection(Base):
 
     # Audit
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

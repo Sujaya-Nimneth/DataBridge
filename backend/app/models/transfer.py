@@ -3,9 +3,9 @@ Transfer job and transfer log models for tracking data movement operations.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,9 +25,7 @@ class TransferJob(Base):
         Index("ix_transfer_jobs_user_status", "user_id", "status"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -67,12 +65,8 @@ class TransferJob(Base):
     transferred_rows: Mapped[int] = mapped_column(Integer, default=0)
 
     # Timing
-    started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Error tracking
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -82,7 +76,7 @@ class TransferJob(Base):
 
     # Audit
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     # Relationships
@@ -98,8 +92,10 @@ class TransferJob(Base):
         foreign_keys=[target_connection_id],
     )
     logs = relationship(
-        "TransferLog", back_populates="transfer_job", cascade="all, delete-orphan",
-        order_by="TransferLog.timestamp"
+        "TransferLog",
+        back_populates="transfer_job",
+        cascade="all, delete-orphan",
+        order_by="TransferLog.timestamp",
     )
 
     def __repr__(self) -> str:
@@ -114,9 +110,7 @@ class TransferLog(Base):
 
     __tablename__ = "transfer_logs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     transfer_job_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("transfer_jobs.id", ondelete="CASCADE"),
@@ -128,7 +122,7 @@ class TransferLog(Base):
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     # Relationships
