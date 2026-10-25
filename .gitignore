@@ -33,3 +33,4 @@ dist/
 .coverage
 htmlcov/
 .pytest_cache/
+.zcode/
