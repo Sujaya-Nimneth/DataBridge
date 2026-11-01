@@ -3,15 +3,15 @@
 -r requirements.txt
 
 # Testing
-pytest==8.3.4
-pytest-asyncio==0.25.0
+pytest==9.2.0
+pytest-asyncio==1.4.1
 pytest-cov==7.1.0
-aiosqlite==0.20.0
+aiosqlite==0.22.1
 httpx==0.28.1
 
 # Static analysis
-ruff==0.17.2
-mypy==2.4.0
+ruff==0.17.3
+mypy==2.4.1
 
 # Dependency auditing
 pip-audit==2.10.1
