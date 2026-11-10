@@ -175,8 +175,9 @@ function Transfers() {
         column_mappings: buildColumnMappings(),
       };
       await transfersAPI.create(payload);
-      toast.success('Transfer started!');
+      toast.success('Transfer started');
       setShowWizard(false);
+      if (newParam === '1') setSearchParams({}, { replace: true });
       setWizardStep(1);
       setWizardForm({
         source_connection_id: '',
@@ -208,6 +209,17 @@ function Transfers() {
     // loadData is recreated per render; the filter value is the real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  // Warn before a reload/tab close while an unsaved wizard is open.
+  useEffect(() => {
+    if (!showWizard) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [showWizard]);
 
   const cancelTransfer = async (id) => {
     try {
@@ -253,6 +265,22 @@ function Transfers() {
 
   const setStatusFilter = (value) => {
     setSearchParams(value === 'all' ? {} : { status: value }, { replace: true });
+  };
+
+  const wizardHasContent = Boolean(
+    wizardForm.source_table ||
+      wizardForm.target_table ||
+      wizardForm.filter_query ||
+      wizardForm.target_connection_id,
+  );
+
+  const requestCloseWizard = () => {
+    if (wizardHasContent && !window.confirm('Discard this transfer? Your selections will be lost.')) {
+      return;
+    }
+    setShowWizard(false);
+    // Clear the deep link so a refresh does not reopen the wizard.
+    if (newParam === '1') setSearchParams({}, { replace: true });
   };
 
   const statusTabs = [
@@ -424,9 +452,9 @@ function Transfers() {
       {/* Transfer Wizard Modal */}
       {showWizard && (
         <Modal
-          title="New Transfer"
+          title="New transfer"
           maxWidth="600px"
-          onClose={() => setShowWizard(false)}
+          onClose={requestCloseWizard}
           footer={
             <>
               {wizardStep > 1 && (
@@ -675,17 +703,23 @@ function Transfers() {
             <div>
               <div className="form-group">
                 <label className="form-label" htmlFor="wizard-filter">
-                  Filter (Optional SQL WHERE clause)
+                  Filter (optional SQL WHERE clause)
                 </label>
                 <input
                   id="wizard-filter"
                   className="form-input font-mono"
                   value={wizardForm.filter_query}
-                  placeholder="e.g. status = 'active' AND created_at > '2024-01-01'"
+                  placeholder="status = 'active' AND created_at > '2024-01-01'…"
+                  spellCheck="false"
+                  autoComplete="off"
+                  aria-describedby="wizard-filter-hint"
                   onChange={(e) =>
                     setWizardForm((prev) => ({ ...prev, filter_query: e.target.value }))
                   }
                 />
+                <span className="form-hint" id="wizard-filter-hint">
+                  Plain column comparisons only. The server validates the clause before it runs.
+                </span>
               </div>
               <label className="form-checkbox">
                 <input
