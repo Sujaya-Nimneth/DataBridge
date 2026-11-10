@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { connectionsAPI, discoveryAPI, transfersAPI } from '../api/client';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
 import Modal from '../components/Modal';
@@ -23,12 +23,13 @@ function Transfers() {
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
-  const [showDetail, setShowDetail] = useState(null);
-  const [detailLogs, setDetailLogs] = useState([]);
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [wizardErrors, setWizardErrors] = useState([]);
-  const detailId = showDetail?.id ?? null;
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const newParam = searchParams.get('new');
+  const statusFilter = searchParams.get('status') || 'all';
+  const sourceTableState = location.state?.sourceTable;
 
   // Wizard form state
   const [wizardForm, setWizardForm] = useState({
@@ -56,25 +57,30 @@ function Transfers() {
 
   useEffect(() => {
     loadData();
-    if (location.state?.sourceTable) {
-      const st = location.state.sourceTable;
+    if (sourceTableState) {
       setWizardForm((prev) => ({
         ...prev,
-        source_connection_id: st.connId,
-        source_schema: st.schema,
-        source_table: st.tableName,
+        source_connection_id: sourceTableState.connId,
+        source_schema: sourceTableState.schema,
+        source_table: sourceTableState.tableName,
       }));
       setShowWizard(true);
       setWizardStep(2);
+    } else if (newParam === '1') {
+      // Deep link from the Dashboard's primary action.
+      setShowWizard(true);
+      setWizardStep(1);
     }
-    // Deep-link prefill only needs to run when the navigation state changes.
-  }, [location.state?.sourceTable]);
+    // Deep-link prefill only needs to run when navigation state / query changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceTableState, newParam]);
 
-  // Poll for running transfers
+  // Poll for running transfers, honouring the URL filter.
   const hasRunning = transfers.some((t) => t.status === 'running' || t.status === 'pending');
   usePolling(
     async (signal) => {
-      const res = await transfersAPI.list(undefined, signal);
+      const params = statusFilter !== 'all' ? { status: statusFilter } : undefined;
+      const res = await transfersAPI.list(params, signal);
       setTransfers(res.data);
     },
     5000,
@@ -83,11 +89,15 @@ function Transfers() {
 
   const loadData = async () => {
     try {
-      const [txRes, connRes] = await Promise.all([transfersAPI.list(), connectionsAPI.list()]);
+      const params = statusFilter !== 'all' ? { status: statusFilter } : undefined;
+      const [txRes, connRes] = await Promise.all([
+        transfersAPI.list(params),
+        connectionsAPI.list(),
+      ]);
       setTransfers(txRes.data);
       setConnections(connRes.data);
     } catch {
-      toast.error('Failed to load data');
+      toast.error('Failed to load transfers');
     } finally {
       setLoading(false);
     }
@@ -192,27 +202,12 @@ function Transfers() {
     }
   };
 
-  const viewDetail = (transfer) => {
-    setShowDetail(transfer);
-    setDetailLogs([]);
-  };
-
-  // Keep an open detail modal in sync with the running job.
-  const detailIsLive = showDetail?.status === 'running' || showDetail?.status === 'pending';
-  usePolling(
-    async (signal) => {
-      if (!detailId) return null;
-      const [jobRes, logsRes] = await Promise.all([
-        transfersAPI.get(detailId, signal),
-        transfersAPI.getLogs(detailId, signal),
-      ]);
-      setShowDetail(jobRes.data);
-      setDetailLogs(logsRes.data);
-      return jobRes.data;
-    },
-    3000,
-    Boolean(detailId) && detailIsLive,
-  );
+  // Reload the list whenever the URL status filter changes (deep-linkable).
+  useEffect(() => {
+    if (!loading) loadData();
+    // loadData is recreated per render; the filter value is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const cancelTransfer = async (id) => {
     try {
@@ -256,29 +251,59 @@ function Transfers() {
     );
   }
 
+  const setStatusFilter = (value) => {
+    setSearchParams(value === 'all' ? {} : { status: value }, { replace: true });
+  };
+
+  const statusTabs = [
+    { id: 'all', label: 'All' },
+    { id: 'running', label: 'Running' },
+    { id: 'completed', label: 'Completed' },
+    { id: 'failed', label: 'Failed' },
+    { id: 'cancelled', label: 'Cancelled' },
+  ];
+
   return (
     <div className="page-container">
-      <div className="page-header page-header-actions">
+      <div className="page-header">
         <div>
-          <h1>Data Transfers</h1>
+          <h1>Data transfers</h1>
           <p>Move data between configured database connections</p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setShowWizard(true);
-            setWizardStep(1);
-          }}
-          id="btn-new-transfer"
-        >
-          <HiOutlinePlus /> New Transfer
-        </button>
+        <div className="page-header-actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setShowWizard(true);
+              setWizardStep(1);
+            }}
+            id="btn-new-transfer"
+          >
+            <HiOutlinePlus aria-hidden="true" /> New transfer
+          </button>
+        </div>
       </div>
 
       {/* Transfer History */}
-      <div className="card">
+      <section className="card" aria-label="Transfer history">
         <div className="card-header">
-          <div className="card-title">Transfer History</div>
+          <h2 className="card-title">Transfer history</h2>
+          <span className="card-subtitle">{transfers.length} in this view</span>
+        </div>
+
+        <div className="tabs" role="tablist" aria-label="Filter transfers by status">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === tab.id}
+              className={`tab ${statusFilter === tab.id ? 'active' : ''}`}
+              onClick={() => setStatusFilter(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {transfers.length === 0 ? (
@@ -286,8 +311,17 @@ function Transfers() {
             <div className="empty-state-icon">
               <HiOutlineSwitchHorizontal aria-hidden="true" />
             </div>
-            <h3>No transfers yet</h3>
-            <p>Create your first data transfer to move data between databases.</p>
+            <h3>{statusFilter === 'all' ? 'No transfers yet' : `No ${statusFilter} transfers`}</h3>
+            <p>
+              {statusFilter === 'all'
+                ? 'Create your first data transfer to move data between databases.'
+                : 'Try another status, or clear the filter.'}
+            </p>
+            {statusFilter !== 'all' && (
+              <button className="btn btn-secondary" type="button" onClick={() => setStatusFilter('all')}>
+                Show all
+              </button>
+            )}
           </div>
         ) : (
           <div className="data-table-wrapper">
@@ -358,13 +392,14 @@ function Transfers() {
                       </td>
                       <td>
                         <div className="flex gap-2">
-                          <button
+                          <Link
                             className="btn btn-ghost btn-sm"
-                            onClick={() => viewDetail(tx)}
+                            to={`/transfers/${tx.id}`}
                             title="View details"
+                            aria-label={`View details of ${tx.source_table} transfer`}
                           >
-                            <HiOutlineEye />
-                          </button>
+                            <HiOutlineEye aria-hidden="true" />
+                          </Link>
                           {(tx.status === 'running' || tx.status === 'pending') && (
                             <button
                               className="btn btn-ghost btn-sm btn-danger-icon"
@@ -384,7 +419,7 @@ function Transfers() {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Transfer Wizard Modal */}
       {showWizard && (
@@ -777,73 +812,6 @@ function Transfers() {
         </Modal>
       )}
 
-      {/* Transfer Detail Modal */}
-      {showDetail && (
-        <Modal title="Transfer Details" maxWidth="700px" onClose={() => setShowDetail(null)}>
-          <div className="transfer-summary-grid mb-6">
-            <div>
-              <div className="text-xs text-muted">SOURCE</div>
-              <div className="font-semibold">{showDetail.source_connection_name}</div>
-              <div className="font-mono text-sm text-muted">{showDetail.source_table}</div>
-            </div>
-            <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
-            <div>
-              <div className="text-xs text-muted">TARGET</div>
-              <div className="font-semibold">{showDetail.target_connection_name}</div>
-              <div className="font-mono text-sm text-muted">{showDetail.target_table}</div>
-            </div>
-          </div>
-
-          <div className="flex gap-3 mb-4">
-            <span className={`badge ${getStatusBadge(showDetail.status)}`}>
-              <span className="badge-dot"></span>
-              {showDetail.status}
-            </span>
-            <span className="text-sm text-muted">
-              {showDetail.transferred_rows?.toLocaleString()} /{' '}
-              {showDetail.total_rows?.toLocaleString() || '?'} rows
-            </span>
-            <span className="text-sm text-muted">
-              Duration: {formatDuration(showDetail.started_at, showDetail.completed_at)}
-            </span>
-          </div>
-
-          {showDetail.status === 'running' && showDetail.total_rows && (
-            <div className="progress-bar mb-4" style={{ height: '8px' }}>
-              <div
-                className="progress-fill animated"
-                style={{
-                  width: `${Math.round((showDetail.transferred_rows / showDetail.total_rows) * 100)}%`,
-                }}
-              ></div>
-            </div>
-          )}
-
-          {showDetail.error_message && (
-            <div className="alert alert-danger mb-4">
-              <div className="text-sm font-bold text-danger mb-4">Error</div>
-              <div className="text-sm font-mono">{showDetail.error_message}</div>
-            </div>
-          )}
-
-          <div className="card-title mb-4">Execution Logs</div>
-          <div className="log-viewer">
-            {detailLogs.length === 0 ? (
-              <div className="text-muted text-sm" style={{ padding: '20px', textAlign: 'center' }}>
-                No logs available
-              </div>
-            ) : (
-              detailLogs.map((log) => (
-                <div key={log.id} className="log-entry">
-                  <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  <span className={`log-level ${log.level}`}>{log.level}</span>
-                  <span className="log-message">{log.message}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Modal>
-      )}
       {/* Cancel Confirmation Modal */}
       {confirmCancel && (
         <Modal

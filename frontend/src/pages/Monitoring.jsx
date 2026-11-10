@@ -3,7 +3,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { adminAPI, monitoringAPI } from '../api/client';
+import { Link } from 'react-router-dom';
+import { monitoringAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import {
@@ -20,7 +21,6 @@ function Monitoring() {
   const [metrics, setMetrics] = useState(null);
   const [connStatuses, setConnStatuses] = useState([]);
   const [activity, setActivity] = useState([]);
-  const [users, setUsers] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const { user } = useAuth();
@@ -29,25 +29,22 @@ function Monitoring() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const requests = [
+      const [statsRes, metricsRes, connRes, activityRes] = await Promise.all([
         monitoringAPI.getDashboard(),
         monitoringAPI.getMetrics(),
         monitoringAPI.getConnectionStatuses(),
         monitoringAPI.getActivity(50),
-      ];
-      if (isAdmin) requests.push(adminAPI.listUsers());
-      const [statsRes, metricsRes, connRes, activityRes, usersRes] = await Promise.all(requests);
+      ]);
       setStats(statsRes.data);
       setMetrics(metricsRes.data);
       setConnStatuses(connRes.data);
       setActivity(activityRes.data);
-      if (usersRes) setUsers(usersRes.data);
     } catch {
       toast.error('Failed to load monitoring data');
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     loadAll();
@@ -87,14 +84,21 @@ function Monitoring() {
 
   return (
     <div className="page-container">
-      <div className="page-header page-header-actions">
+      <div className="page-header">
         <div>
           <h1>Monitoring</h1>
           <p>Platform health, metrics, and activity tracking</p>
         </div>
-        <button className="btn btn-secondary" onClick={loadAll}>
-          <HiOutlineRefresh /> Refresh
-        </button>
+        <div className="page-header-actions">
+          {isAdmin && (
+            <Link className="btn btn-secondary" to="/admin/users">
+              Users
+            </Link>
+          )}
+          <button className="btn btn-secondary" onClick={loadAll}>
+            <HiOutlineRefresh aria-hidden="true" /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="tabs" role="tablist" aria-label="Monitoring sections">
@@ -102,7 +106,6 @@ function Monitoring() {
           { id: 'overview', label: 'Overview' },
           { id: 'connections', label: 'Connections' },
           { id: 'activity', label: 'Activity Log' },
-          ...(isAdmin ? [{ id: 'users', label: 'Users (Admin)' }] : []),
         ].map((tab) => (
           <button
             key={tab.id}
@@ -330,62 +333,6 @@ function Monitoring() {
                       </td>
                       <td className="text-sm">{item.rows?.toLocaleString() || '—'}</td>
                       <td className="text-sm text-muted">{formatTime(item.timestamp)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-      {activeTab === 'users' && isAdmin && (
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Platform Users</div>
-            <div className="card-subtitle">{users?.length || 0} registered accounts</div>
-          </div>
-          {(!users || users.length === 0) && (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <HiOutlineClipboardList aria-hidden="true" />
-              </div>
-              <h3>No users found</h3>
-            </div>
-          )}
-          {users && users.length > 0 && (
-            <div className="data-table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Connections</th>
-                    <th>Transfers</th>
-                    <th>Joined</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td style={{ fontWeight: 600 }}>{u.email}</td>
-                      <td>{u.full_name}</td>
-                      <td>
-                        <span
-                          className={`badge ${u.role === 'admin' ? 'badge-warning' : 'badge-neutral'}`}
-                        >
-                          {u.role}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${u.is_active ? 'badge-success' : 'badge-danger'}`}>
-                          {u.is_active ? 'active' : 'disabled'}
-                        </span>
-                      </td>
-                      <td className="text-sm">{u.connection_count}</td>
-                      <td className="text-sm">{u.transfer_count}</td>
-                      <td className="text-sm text-muted">{formatTime(u.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -17,7 +17,9 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Connections = lazy(() => import('./pages/Connections'));
 const Explorer = lazy(() => import('./pages/Explorer'));
 const Transfers = lazy(() => import('./pages/Transfers'));
+const TransferDetail = lazy(() => import('./pages/TransferDetail'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 
 function PageFallback() {
   return (
@@ -109,11 +111,31 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/transfers/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TransferDetail />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/monitoring"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <Monitoring />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <AdminUsers />
               </AppLayout>
             </ProtectedRoute>
           }

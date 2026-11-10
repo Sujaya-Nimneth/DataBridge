@@ -1923,6 +1923,59 @@ pre,
   font-variant-numeric: tabular-nums;
 }
 
+.detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.field-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.progress-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.progress-figures > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+}
+
+.confirm-dialog h2 {
+  font-size: var(--fs-card);
+  font-weight: 600;
+}
+
 /* ============================================================
    30. Responsive
    ============================================================ */
