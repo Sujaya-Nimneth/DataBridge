@@ -1,5 +1,6 @@
 /**
- * Login / Registration page with glassmorphism card design.
+ * Sign in / Create account. The first screen says plainly what this is and
+ * what to do; errors appear beside the field they belong to.
  */
 
 import { useState } from 'react';
@@ -16,29 +17,35 @@ function Login() {
     confirmPassword: '',
     fullName: '',
   });
+  const [fieldError, setFieldError] = useState(null);
+  const [serverError, setServerError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldError(null);
+    setServerError(null);
 
     if (isRegister && form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match');
+      setFieldError({ field: 'confirmPassword', message: 'Passwords do not match.' });
+      document.getElementById('input-confirm-password')?.focus();
       return;
     }
 
     setLoading(true);
-
     try {
       if (isRegister) {
         await register(form.email, form.password, form.fullName);
-        toast.success('Account created successfully!');
+        toast.success('Account created');
       } else {
         await login(form.email, form.password);
-        toast.success('Welcome back!');
+        toast.success('Signed in');
       }
     } catch (err) {
       const message =
-        err.response?.data?.message || err.response?.data?.detail || 'Authentication failed';
-      toast.error(message);
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        'Check your email and password, then try again.';
+      setServerError(message);
     } finally {
       setLoading(false);
     }
@@ -46,21 +53,37 @@ function Login() {
 
   const updateForm = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (fieldError?.field === field) setFieldError(null);
+  };
+
+  const toggleMode = () => {
+    setIsRegister((prev) => !prev);
+    setFieldError(null);
+    setServerError(null);
   };
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      <main className="login-card">
         <div className="login-header">
-          <div className="login-logo">D</div>
-          <h1>{isRegister ? 'Create Account' : 'Welcome Back'}</h1>
-          <p>{isRegister ? 'Get started with DataBridge' : 'Sign in to your DataBridge account'}</p>
+          <div className="login-logo" aria-hidden="true">
+            D
+          </div>
+          <h1>{isRegister ? 'Create your account' : 'Sign in to DataBridge'}</h1>
+          <p>
+            {isRegister
+              ? 'Connect your databases and start moving data.'
+              : 'Connect to your databases, explore schemas, and run transfers.'}
+          </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          aria-label={isRegister ? 'Registration form' : 'Sign-in form'}
-        >
+        <form onSubmit={handleSubmit} aria-label={isRegister ? 'Registration form' : 'Sign-in form'} noValidate>
+          {serverError && (
+            <div className="alert alert-danger" role="alert">
+              <span>{serverError}</span>
+            </div>
+          )}
+
           {isRegister && (
             <div className="form-group">
               <label className="form-label" htmlFor="input-fullname">
@@ -70,8 +93,9 @@ function Login() {
                 id="input-fullname"
                 className="form-input"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Jane Doe…"
                 autoComplete="name"
+                spellCheck="false"
                 value={form.fullName}
                 onChange={(e) => updateForm('fullName', e.target.value)}
                 required
@@ -87,8 +111,9 @@ function Login() {
               id="input-email"
               className="form-input"
               type="email"
-              placeholder="you@example.com"
+              placeholder="you@example.com…"
               autoComplete="email"
+              spellCheck="false"
               value={form.email}
               onChange={(e) => updateForm('email', e.target.value)}
               required
@@ -108,8 +133,14 @@ function Login() {
               value={form.password}
               onChange={(e) => updateForm('password', e.target.value)}
               minLength={8}
+              aria-describedby="password-hint"
               required
             />
+            {isRegister && (
+              <span className="form-hint" id="password-hint">
+                At least 8 characters.
+              </span>
+            )}
           </div>
 
           {isRegister && (
@@ -119,15 +150,22 @@ function Login() {
               </label>
               <input
                 id="input-confirm-password"
-                className="form-input"
+                className={`form-input ${fieldError?.field === 'confirmPassword' ? 'input-invalid' : ''}`}
                 type="password"
                 placeholder="••••••••"
                 autoComplete="new-password"
                 value={form.confirmPassword}
                 onChange={(e) => updateForm('confirmPassword', e.target.value)}
                 minLength={8}
+                aria-invalid={fieldError?.field === 'confirmPassword' ? 'true' : undefined}
+                aria-describedby={fieldError?.field === 'confirmPassword' ? 'confirm-error' : undefined}
                 required
               />
+              {fieldError?.field === 'confirmPassword' && (
+                <span className="form-error" id="confirm-error" role="alert">
+                  {fieldError.message}
+                </span>
+              )}
             </div>
           )}
 
@@ -139,7 +177,10 @@ function Login() {
             style={{ justifyContent: 'center', marginTop: '8px' }}
           >
             {loading ? (
-              <div className="spinner" style={{ borderTopColor: 'white' }}></div>
+              <>
+                <span className="spinner" aria-hidden="true" />
+                <span>Signing in…</span>
+              </>
             ) : isRegister ? (
               'Create Account'
             ) : (
@@ -150,11 +191,11 @@ function Login() {
 
         <div className="login-toggle">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button onClick={() => setIsRegister(!isRegister)} id="btn-toggle-auth">
+          <button type="button" onClick={toggleMode} id="btn-toggle-auth">
             {isRegister ? 'Sign In' : 'Create one'}
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

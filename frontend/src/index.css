@@ -836,6 +836,15 @@ pre,
   color: var(--pill-negative-ink);
 }
 
+.form-hint {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+.input-invalid {
+  border-color: var(--negative);
+}
+
 /* ============================================================
    11. Tables — rules and alignment, no zebra, no header band
    ============================================================ */
