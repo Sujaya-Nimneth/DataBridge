@@ -1932,10 +1932,19 @@ pre,
   flex-wrap: wrap;
 }
 
-.field-label {
-  font-size: var(--fs-meta);
+.field-label,
+.section-label {
+  font-size: var(--fs-section);
+  font-weight: 400;
   color: var(--muted);
-  margin-bottom: 4px;
+  margin-bottom: 12px;
+}
+
+.explorer-sidebar .section-label {
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  padding: 8px 4px;
+  margin-bottom: 8px;
 }
 
 .progress-figures {

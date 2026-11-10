@@ -2,9 +2,9 @@
  * Data explorer - schema tree, column inspector, and data preview
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { connectionsAPI, discoveryAPI } from '../api/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   HiOutlineChevronRight,
@@ -28,10 +28,65 @@ function Explorer() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('columns');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const restoredRef = useRef(false);
 
   useEffect(() => {
     loadConnections();
   }, []);
+
+  // Restore a deep-linked table selection once the connection list is ready.
+  useEffect(() => {
+    if (loading || restoredRef.current || connections.length === 0) return;
+    const connId = searchParams.get('conn');
+    const schema = searchParams.get('schema') || '';
+    const table = searchParams.get('table');
+    if (!connId || !table) return;
+    const conn = connections.find((c) => c.id === connId);
+    if (!conn) return;
+    restoredRef.current = true;
+
+    let cancelled = false;
+    const restore = async () => {
+      try {
+        const [schemasRes, tablesRes] = await Promise.all([
+          discoveryAPI.getSchemas(connId),
+          discoveryAPI.getTables(connId, schema || undefined),
+        ]);
+        if (cancelled) return;
+        setTreeData((prev) => ({
+          ...prev,
+          [`schemas-${connId}`]: schemasRes.data,
+          [`tables-${connId}-${schema}`]: tablesRes.data,
+        }));
+        setExpanded((prev) => ({
+          ...prev,
+          [`conn-${connId}`]: true,
+          [`schema-${connId}-${schema}`]: true,
+        }));
+        await selectTable(connId, schema, table, conn.name, true);
+        if (!cancelled && searchParams.get('tab') === 'preview') {
+          try {
+            const previewRes = await discoveryAPI.previewData(connId, table, {
+              schema,
+              page: 1,
+              page_size: 50,
+            });
+            if (!cancelled) setPreview(previewRes.data);
+          } catch {
+            if (!cancelled) toast.error('Failed to load data preview');
+          }
+        }
+      } catch {
+        if (!cancelled) toast.error("Couldn't restore the selected table");
+      }
+    };
+    restore();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, connections]);
 
   const loadConnections = async () => {
     setLoadFailed(false);
@@ -75,10 +130,21 @@ function Explorer() {
     }
   };
 
-  const selectTable = async (connId, schema, tableName, connName) => {
+  const setTab = (tab) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'columns') next.delete('tab');
+    else next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
+
+  const selectTable = async (connId, schema, tableName, connName, keepTab = false) => {
     setSelectedTable({ connId, schema, tableName, connName });
-    setActiveTab('columns');
     setPreview(null);
+    const next = new URLSearchParams({ conn: connId, schema: schema || '', table: tableName });
+    if (keepTab && searchParams.get('tab') === 'preview') next.set('tab', 'preview');
+    setSearchParams(next, { replace: true });
+    setActiveTab(keepTab && searchParams.get('tab') === 'preview' ? 'preview' : 'columns');
 
     try {
       const res = await discoveryAPI.getColumns(connId, tableName, schema);
@@ -91,7 +157,7 @@ function Explorer() {
   const loadPreview = async () => {
     if (!selectedTable) return;
     setPreviewLoading(true);
-    setActiveTab('preview');
+    setTab('preview');
     try {
       const res = await discoveryAPI.previewData(selectedTable.connId, selectedTable.tableName, {
         schema: selectedTable.schema,
@@ -143,9 +209,9 @@ function Explorer() {
               <HiOutlineSearch aria-hidden="true" />
             </div>
             <h3>No connections available</h3>
-            <p>Create a database connection first to start exploring data.</p>
+            <p>Add a database connection first to start exploring data.</p>
             <button className="btn btn-primary" onClick={() => navigate('/connections')}>
-              Add Connection
+              Add a connection
             </button>
           </div>
         </div>
@@ -153,19 +219,7 @@ function Explorer() {
         <div className="explorer-layout">
           {/* Tree Sidebar */}
           <div className="explorer-sidebar">
-            <div
-              style={{
-                padding: '8px 4px',
-                marginBottom: '8px',
-                fontSize: '12px',
-                fontWeight: '600',
-                color: 'var(--color-text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}
-            >
-              Database Objects
-            </div>
+            <h2 className="section-label">Database objects</h2>
             <div className="tree-view" role="tree" aria-label="Database objects">
               {connections.map((conn) => {
                 const connKey = `conn-${conn.id}`;
@@ -187,10 +241,7 @@ function Explorer() {
                       <span className="tree-node-icon">
                         {isExpanded ? <HiOutlineChevronDown /> : <HiOutlineChevronRight />}
                       </span>
-                      <span
-                        className="tree-node-icon"
-                        style={{ color: conn.db_type === 'postgresql' ? '#6699ff' : '#00b4d8' }}
-                      >
+                      <span className="tree-node-icon" aria-hidden="true">
                         <HiOutlineDatabase />
                       </span>
                       <span className="tree-node-label">{conn.name}</span>
@@ -316,7 +367,7 @@ function Explorer() {
                         navigate('/transfers', { state: { sourceTable: selectedTable } })
                       }
                     >
-                      Transfer This Table
+                      Transfer this table
                     </button>
                   </div>
 
@@ -328,7 +379,7 @@ function Explorer() {
                       aria-selected={activeTab === 'columns'}
                       aria-controls="panel-columns"
                       className={`tab ${activeTab === 'columns' ? 'active' : ''}`}
-                      onClick={() => setActiveTab('columns')}
+                      onClick={() => setTab('columns')}
                     >
                       Columns
                     </button>
