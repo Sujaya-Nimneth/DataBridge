@@ -3,18 +3,15 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import {
-  HiOutlineRefresh,
-  HiOutlineChartBar,
-  HiOutlineClock,
-  HiOutlineDatabase,
-  HiOutlineClipboardList,
-  HiOutlineCheckCircle,
-} from 'react-icons/hi';
+import { Freshness, SkeletonBlock, SkeletonRows } from '../components/States';
+import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
+
+const number = (n) =>
+  n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n);
 
 function Monitoring() {
   const [stats, setStats] = useState(null);
@@ -22,12 +19,19 @@ function Monitoring() {
   const [connStatuses, setConnStatuses] = useState([]);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('view') || 'overview';
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
+  const setTab = (id) => {
+    setSearchParams(id === 'overview' ? {} : { view: id }, { replace: true });
+  };
+
   const loadAll = useCallback(async () => {
-    setLoading(true);
+    setLoadError(false);
     try {
       const [statsRes, metricsRes, connRes, activityRes] = await Promise.all([
         monitoringAPI.getDashboard(),
@@ -39,8 +43,10 @@ function Monitoring() {
       setMetrics(metricsRes.data);
       setConnStatuses(connRes.data);
       setActivity(activityRes.data);
+      setUpdatedAt(new Date());
     } catch {
-      toast.error('Failed to load monitoring data');
+      setLoadError(true);
+      toast.error("Couldn't load monitoring data");
     } finally {
       setLoading(false);
     }
@@ -71,9 +77,16 @@ function Monitoring() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="page-header"><h1>Monitoring</h1></div>
+        <div className="stats-grid" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div className="stat-card" key={i}>
+              <SkeletonBlock width="70%" height={12} />
+              <SkeletonBlock width="45%" height={26} />
+            </div>
+          ))}
         </div>
+        <div className="card"><SkeletonRows rows={5} /></div>
       </div>
     );
   }
@@ -90,14 +103,12 @@ function Monitoring() {
           <p>Platform health, metrics, and activity tracking</p>
         </div>
         <div className="page-header-actions">
+          <Freshness updatedAt={updatedAt} onRefresh={loadAll} loading={loading} stale={loadError} />
           {isAdmin && (
             <Link className="btn btn-secondary" to="/admin/users">
               Users
             </Link>
           )}
-          <button className="btn btn-secondary" onClick={loadAll}>
-            <HiOutlineRefresh aria-hidden="true" /> Refresh
-          </button>
         </div>
       </div>
 
@@ -105,7 +116,7 @@ function Monitoring() {
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'connections', label: 'Connections' },
-          { id: 'activity', label: 'Activity Log' },
+          { id: 'activity', label: 'Activity log' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -115,7 +126,7 @@ function Monitoring() {
             aria-selected={activeTab === tab.id}
             aria-controls={`panel-${tab.id}`}
             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setTab(tab.id)}
           >
             {tab.label}
           </button>
@@ -124,95 +135,75 @@ function Monitoring() {
 
       {activeTab === 'overview' && (
         <>
-          {/* Key Metrics */}
-          <div className="stats-grid">
+          <div className="stats-grid stats-grid-4">
             <div className="stat-card">
-              <div className="stat-card-icon primary">
-                <HiOutlineChartBar />
-              </div>
-              <div className="stat-value">{stats?.total_transfers || 0}</div>
-              <div className="stat-label">Total Transfers</div>
+              <span className="stat-label">Total transfers</span>
+              <span className="stat-value">{number(stats?.total_transfers ?? 0)}</span>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon success">
-                <HiOutlineCheckCircle aria-hidden="true" />
-              </div>
-              <div className="stat-value">{stats?.success_rate || 0}%</div>
-              <div className="stat-label">Success Rate</div>
+              <span className="stat-label">Finished successfully</span>
+              <span className="stat-value">
+                {number(stats?.success_rate ?? 0)}
+                <span className="stat-unit">%</span>
+              </span>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon info">
-                <HiOutlineClock />
-              </div>
-              <div className="stat-value">
-                {metrics?.average_duration_seconds
+              <span className="stat-label">Average duration</span>
+              <span className="stat-value">
+                {metrics?.average_duration_seconds != null
                   ? `${Math.round(metrics.average_duration_seconds)}s`
-                  : '—'}
-              </div>
-              <div className="stat-label">Avg Duration</div>
+                  : '–'}
+              </span>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon warning">
-                <HiOutlineChartBar aria-hidden="true" />
-              </div>
-              <div className="stat-value">
-                {stats?.total_rows_transferred?.toLocaleString() || 0}
-              </div>
-              <div className="stat-label">Total Rows Moved</div>
+              <span className="stat-label">Rows moved</span>
+              <span className="stat-value">{number(stats?.total_rows_transferred ?? 0)}</span>
             </div>
           </div>
 
           <div className="grid-2">
-            {/* Transfer Status Distribution */}
-            <div className="card">
+            <section className="card" aria-labelledby="distribution-title">
               <div className="card-header">
-                <div className="card-title">Transfer Status Distribution</div>
+                <h2 className="card-title" id="distribution-title">
+                  Transfer status
+                </h2>
+                <span className="card-subtitle">Last 7 days</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {metrics?.status_counts &&
-                  Object.entries(metrics.status_counts).map(([status, count]) => {
+              {metrics?.status_counts &&
+              Object.keys(metrics.status_counts).length > 0 ? (
+                <div className="distribution-list">
+                  {Object.entries(metrics.status_counts).map(([status, count]) => {
                     const total = Object.values(metrics.status_counts).reduce((a, b) => a + b, 0);
                     const pct = total > 0 ? (count / total) * 100 : 0;
                     return (
-                      <div key={status}>
-                        <div
-                          className="flex justify-between items-center mb-4"
-                          style={{ marginBottom: '6px' }}
-                        >
+                      <div className="distribution-row" key={status}>
+                        <span className="distribution-label">
                           <span className={`badge ${getStatusBadge(status)}`}>
-                            <span className="badge-dot"></span>
+                            <span className="badge-dot" aria-hidden="true" />
                             {status}
                           </span>
-                          <span className="text-sm">
-                            {count} ({Math.round(pct)}%)
-                          </span>
-                        </div>
-                        <div className="progress-bar" style={{ height: '4px' }}>
-                          <div
-                            className="progress-fill"
-                            style={{
-                              width: `${pct}%`,
-                              background:
-                                status === 'completed'
-                                  ? 'var(--color-success)'
-                                  : status === 'failed'
-                                    ? 'var(--color-danger)'
-                                    : status === 'running'
-                                      ? 'var(--color-primary)'
-                                      : 'var(--color-text-muted)',
-                            }}
-                          ></div>
-                        </div>
+                        </span>
+                        <span className="distribution-bar">
+                          <span className="distribution-fill" style={{ width: `${pct}%` }} />
+                        </span>
+                        <span className="distribution-value">
+                          {count} <span className="text-muted">({Math.round(pct)}%)</span>
+                        </span>
                       </div>
                     );
                   })}
-              </div>
-            </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No transfers in this range.</p>
+              )}
+            </section>
 
-            {/* Daily Transfer Chart */}
-            <div className="card">
+            <section className="card" aria-labelledby="daily-title">
               <div className="card-header">
-                <div className="card-title">Transfers (Last 7 Days)</div>
+                <h2 className="card-title" id="daily-title">
+                  Transfers per day
+                </h2>
+                <span className="card-subtitle">Last 7 days · peak {maxDailyCount}</span>
               </div>
               <div
                 className="bar-chart"
@@ -222,17 +213,17 @@ function Monitoring() {
                 {metrics?.daily_transfers?.map((day) => {
                   const heightPct =
                     maxDailyCount > 0 ? Math.max((day.count / maxDailyCount) * 100, 3) : 3;
-                  const label = new Date(day.date).toLocaleDateString('en', {
-                    weekday: 'short',
-                  });
+                  const date = new Date(day.date);
+                  const label = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
+                  const full = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
                   return (
                     <div key={day.date} className="bar-chart-column">
-                      <span className="bar-chart-value text-xs font-bold">{day.count}</span>
+                      <span className="bar-chart-value">{day.count}</span>
                       <div className="bar-chart-track">
                         <div
                           className="bar-chart-bar"
                           style={{ height: `${heightPct}%` }}
-                          title={`${label}: ${day.count} transfer${day.count === 1 ? '' : 's'}`}
+                          title={`${full}: ${day.count} transfer${day.count === 1 ? '' : 's'}`}
                         />
                       </div>
                       <span className="text-xs text-muted">{label}</span>
@@ -240,7 +231,10 @@ function Monitoring() {
                   );
                 })}
               </div>
-            </div>
+              <p className="card-subtitle mt-4">
+                Counts are labelled on each bar; the tallest is {maxDailyCount}.
+              </p>
+            </section>
           </div>
         </>
       )}
@@ -248,7 +242,7 @@ function Monitoring() {
       {activeTab === 'connections' && (
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Connection Health Status</div>
+            <h2 className="card-title">Connection health</h2>
           </div>
           {connStatuses.length === 0 ? (
             <div className="empty-state">
@@ -262,11 +256,11 @@ function Monitoring() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Connection</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Last Tested</th>
-                    <th>Message</th>
+                    <th scope="col">Connection</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Last tested</th>
+                    <th scope="col">Message</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -300,7 +294,7 @@ function Monitoring() {
       {activeTab === 'activity' && (
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Activity Log</div>
+            <h2 className="card-title">Activity log</h2>
             <div className="card-subtitle">{activity.length} recent events</div>
           </div>
           {activity.length === 0 ? (
@@ -315,10 +309,10 @@ function Monitoring() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Event</th>
-                    <th>Status</th>
-                    <th>Rows</th>
-                    <th>Time</th>
+                    <th scope="col">Event</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Rows</th>
+                    <th scope="col">Time</th>
                   </tr>
                 </thead>
                 <tbody>

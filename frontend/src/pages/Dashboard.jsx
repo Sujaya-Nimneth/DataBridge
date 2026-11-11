@@ -61,7 +61,7 @@ function Finding({ stats }) {
           !
         </span>
         {stats.failed_today} transfer{stats.failed_today === 1 ? '' : 's'} failed today.{' '}
-        <Link to="/transfers">Review the failures</Link>.
+        <Link to="/transfers">Review the failures</Link>
       </p>
     );
   }

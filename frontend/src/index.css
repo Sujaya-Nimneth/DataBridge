@@ -316,7 +316,7 @@ pre,
   font-size: 22px;
 }
 
-.sidebar-close {
+.sidebar .sidebar-close {
   display: none;
   margin-left: auto;
   font-size: 20px;
@@ -636,6 +636,7 @@ pre,
 
 .stat-card-action {
   width: 100%;
+  text-decoration: none;
 }
 
 .stat-card-icon {
@@ -1853,6 +1854,43 @@ pre,
   gap: 8px;
 }
 
+.stats-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 12px;
+}
+
+.distribution-bar {
+  height: 6px;
+  background: var(--raised);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.distribution-fill {
+  display: block;
+  height: 100%;
+  background: var(--chart-1);
+  border-radius: var(--radius-pill);
+}
+
+.distribution-value {
+  font-size: var(--fs-small);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .activity-meta {
   display: flex;
   align-items: center;
@@ -2042,13 +2080,14 @@ pre,
   .sidebar-footer { justify-content: stretch; padding: 12px; }
   .user-info { flex-direction: row; width: 100%; gap: 12px; }
   .user-details { display: block; flex: 1; min-width: 0; }
-  .sidebar-close { display: inline-flex; }
+  .sidebar .sidebar-close { display: inline-flex; }
 
   .explorer-layout,
   .grid-2,
   .form-row { grid-template-columns: minmax(0, 1fr); }
 
   .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stats-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat-card:nth-child(3) { border-right: none; }
   .page-container { padding: var(--gap); }
   .card-header { flex-wrap: wrap; }
