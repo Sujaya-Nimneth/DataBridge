@@ -108,9 +108,7 @@ function Connections() {
     } catch (err) {
       const details = err.response?.data?.details;
       if (Array.isArray(details) && details.length > 0) {
-        setFormErrors(
-          Object.fromEntries(details.map((d) => [d.field, d.message])),
-        );
+        setFormErrors(Object.fromEntries(details.map((d) => [d.field, d.message])));
       } else {
         toast.error(err.response?.data?.message || 'Check the fields and try again.');
       }
@@ -181,7 +179,9 @@ function Connections() {
       <div className="page-header">
         <div>
           <h1>Connections</h1>
-          <p>{connections.length} database{connections.length === 1 ? '' : 's'} configured</p>
+          <p>
+            {connections.length} database{connections.length === 1 ? '' : 's'} configured
+          </p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={openCreate} id="btn-add-connection">
@@ -247,7 +247,11 @@ function Connections() {
                   id={`btn-test-${conn.id}`}
                 >
                   {testing === conn.id ? (
-                    <span className="spinner" style={{ width: '14px', height: '14px' }} aria-hidden="true" />
+                    <span
+                      className="spinner"
+                      style={{ width: '14px', height: '14px' }}
+                      aria-hidden="true"
+                    />
                   ) : (
                     <HiOutlineStatusOnline aria-hidden="true" />
                   )}

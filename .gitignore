@@ -34,3 +34,6 @@ dist/
 htmlcov/
 .pytest_cache/
 .zcode/
+
+# Design-tool scratch (tasteskill inspection screenshots / dealt directions)
+.taste-skill/

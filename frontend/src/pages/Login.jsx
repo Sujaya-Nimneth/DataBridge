@@ -77,7 +77,11 @@ function Login() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} aria-label={isRegister ? 'Registration form' : 'Sign-in form'} noValidate>
+        <form
+          onSubmit={handleSubmit}
+          aria-label={isRegister ? 'Registration form' : 'Sign-in form'}
+          noValidate
+        >
           {serverError && (
             <div className="alert alert-danger" role="alert">
               <span>{serverError}</span>
@@ -158,7 +162,9 @@ function Login() {
                 onChange={(e) => updateForm('confirmPassword', e.target.value)}
                 minLength={8}
                 aria-invalid={fieldError?.field === 'confirmPassword' ? 'true' : undefined}
-                aria-describedby={fieldError?.field === 'confirmPassword' ? 'confirm-error' : undefined}
+                aria-describedby={
+                  fieldError?.field === 'confirmPassword' ? 'confirm-error' : undefined
+                }
                 required
               />
               {fieldError?.field === 'confirmPassword' && (

@@ -163,8 +163,12 @@ function App() {
               fontSize: 'var(--fs-small)',
               boxShadow: 'none',
             },
-            success: { iconTheme: { primary: 'var(--pill-positive-ink)', secondary: 'var(--surface)' } },
-            error: { iconTheme: { primary: 'var(--pill-negative-ink)', secondary: 'var(--surface)' } },
+            success: {
+              iconTheme: { primary: 'var(--pill-positive-ink)', secondary: 'var(--surface)' },
+            },
+            error: {
+              iconTheme: { primary: 'var(--pill-negative-ink)', secondary: 'var(--surface)' },
+            },
           }}
         />
         <AppRoutes />

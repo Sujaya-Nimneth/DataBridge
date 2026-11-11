@@ -454,8 +454,7 @@ function Explorer() {
                       <>
                         <div className="text-sm text-muted mb-4">
                           Showing {preview.rows.length} of{' '}
-                          {new Intl.NumberFormat().format(preview.total_rows)}{' '}
-                          rows
+                          {new Intl.NumberFormat().format(preview.total_rows)} rows
                         </div>
                         <div
                           className="data-table-wrapper"

@@ -67,7 +67,9 @@ function AdminUsers() {
         <div>
           <h1>Users</h1>
           <p className="page-finding">
-            {loading ? 'Loading…' : `${users.length} registered account${users.length === 1 ? '' : 's'}.`}
+            {loading
+              ? 'Loading…'
+              : `${users.length} registered account${users.length === 1 ? '' : 's'}.`}
           </p>
         </div>
         <button className="btn btn-secondary" type="button" onClick={load} disabled={loading}>
@@ -101,8 +103,12 @@ function AdminUsers() {
                   <th scope="col">Email</th>
                   <th scope="col">Role</th>
                   <th scope="col">Status</th>
-                  <th scope="col" className="text-right">Connections</th>
-                  <th scope="col" className="text-right">Transfers</th>
+                  <th scope="col" className="text-right">
+                    Connections
+                  </th>
+                  <th scope="col" className="text-right">
+                    Transfers
+                  </th>
                   <th scope="col">Joined</th>
                 </tr>
               </thead>
@@ -112,7 +118,9 @@ function AdminUsers() {
                     <td className="object-name">{u.full_name || '–'}</td>
                     <td className="text-sm text-muted">{u.email}</td>
                     <td>
-                      <span className={`badge ${u.role === 'admin' ? 'badge-warning' : 'badge-neutral'}`}>
+                      <span
+                        className={`badge ${u.role === 'admin' ? 'badge-warning' : 'badge-neutral'}`}
+                      >
                         {u.role}
                       </span>
                     </td>

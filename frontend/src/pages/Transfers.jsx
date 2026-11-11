@@ -17,8 +17,7 @@ import {
   HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
-const formatRows = (n) =>
-  n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n);
+const formatRows = (n) => (n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n));
 
 function Transfers() {
   const [transfers, setTransfers] = useState([]);
@@ -272,13 +271,16 @@ function Transfers() {
 
   const wizardHasContent = Boolean(
     wizardForm.source_table ||
-      wizardForm.target_table ||
-      wizardForm.filter_query ||
-      wizardForm.target_connection_id,
+    wizardForm.target_table ||
+    wizardForm.filter_query ||
+    wizardForm.target_connection_id,
   );
 
   const requestCloseWizard = () => {
-    if (wizardHasContent && !window.confirm('Discard this transfer? Your selections will be lost.')) {
+    if (
+      wizardHasContent &&
+      !window.confirm('Discard this transfer? Your selections will be lost.')
+    ) {
       return;
     }
     setShowWizard(false);
@@ -349,7 +351,11 @@ function Transfers() {
                 : 'Try another status, or clear the filter.'}
             </p>
             {statusFilter !== 'all' && (
-              <button className="btn btn-secondary" type="button" onClick={() => setStatusFilter('all')}>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setStatusFilter('all')}
+              >
                 Show all
               </button>
             )}

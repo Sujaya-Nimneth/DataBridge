@@ -5,6 +5,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Frontend UI/UX redesign (Data Terminal).** Replaced the amber/teal
+  glassmorphism theme with a dark, token-based design system (IBM Plex Sans
+  + JetBrains Mono for literal code, one accent line for selections,
+  tabular figures, pale status pills, one divided KPI container). No
+  gradients, glows, glass or resting shadows; every class name is unchanged
+  so existing markup keeps working. See
+  [`design/DESIGN-SYSTEM.md`](design/DESIGN-SYSTEM.md).
+- Transfer detail is now a deep-linkable route (`/transfers/:id`) with live
+  progress, computed rows/sec, a freshness/stale state, and execution logs,
+  replacing the modal. Admin users moved from a Monitoring tab to
+  `/admin/users`. The transfers list (`?status=`, `?new=1`), explorer
+  (`?conn=&schema=&table=&tab=`) and monitoring (`?view=`) now keep their
+  state in the URL.
+- Rebuilt the dashboard, login, connections, explorer, transfers, transfer
+  detail, monitoring and admin screens around one question each, with
+  reusable loading/empty/error/stale/zero states, inline form validation,
+  `Intl` formatting and consistent copy.
+- Accessibility tier committed to WCAG 2.2 AA
+  ([`design/accessibility-requirements.md`](design/accessibility-requirements.md)):
+  skip link, labelled main landmark, `aria-live` toasts, focus-visible
+  everywhere, inline errors tied with `aria-describedby`, Escape/reduced
+  motion, keyboard-operable backdrops and dialogs.
+- The screenshots in `docs/screenshots/` show the previous theme and are
+  kept for reference; capture fresh ones from the demo stack before the
+  next release.
+
 ### Fixed
 
 - MySQL connections work again — PyMySQL was used everywhere but never

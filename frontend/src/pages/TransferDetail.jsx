@@ -34,8 +34,7 @@ function formatDuration(start, end) {
   return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
 }
 
-const number = (n) =>
-  n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n);
+const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
 
 function TransferDetail() {
   const { id } = useParams();
@@ -51,35 +50,38 @@ function TransferDetail() {
   const sampleRef = useRef(null);
   const [rate, setRate] = useState(null);
 
-  const load = useCallback(async (signal) => {
-    try {
-      const [jobRes, logsRes] = await Promise.all([
-        transfersAPI.get(id, signal),
-        transfersAPI.getLogs(id, signal),
-      ]);
-      const next = jobRes.data;
-      const now = Date.now();
-      const prev = sampleRef.current;
-      if (prev && next.transferred_rows > prev.rows && now > prev.at) {
-        const rowsPerSec = ((next.transferred_rows - prev.rows) * 1000) / (now - prev.at);
-        setRate(rowsPerSec);
+  const load = useCallback(
+    async (signal) => {
+      try {
+        const [jobRes, logsRes] = await Promise.all([
+          transfersAPI.get(id, signal),
+          transfersAPI.getLogs(id, signal),
+        ]);
+        const next = jobRes.data;
+        const now = Date.now();
+        const prev = sampleRef.current;
+        if (prev && next.transferred_rows > prev.rows && now > prev.at) {
+          const rowsPerSec = ((next.transferred_rows - prev.rows) * 1000) / (now - prev.at);
+          setRate(rowsPerSec);
+        }
+        sampleRef.current = { rows: next.transferred_rows, at: now };
+        setJob(next);
+        setLogs(logsRes.data);
+        setUpdatedAt(new Date());
+        setStale(false);
+        setLoadError(null);
+        return next;
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError') throw err;
+        setLoadError("Couldn't load this transfer.");
+        setStale(true);
+        throw err;
+      } finally {
+        setLoading(false);
       }
-      sampleRef.current = { rows: next.transferred_rows, at: now };
-      setJob(next);
-      setLogs(logsRes.data);
-      setUpdatedAt(new Date());
-      setStale(false);
-      setLoadError(null);
-      return next;
-    } catch (err) {
-      if (err.name === 'CanceledError' || err.name === 'AbortError') throw err;
-      setLoadError("Couldn't load this transfer.");
-      setStale(true);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+    },
+    [id],
+  );
 
   useEffect(() => {
     load();
@@ -290,7 +292,11 @@ function TransferDetail() {
               Rows already staged are discarded. The target table is left untouched.
             </p>
             <div className="flex gap-2 justify-between mt-6">
-              <button className="btn btn-secondary" type="button" onClick={() => setConfirmCancel(false)}>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setConfirmCancel(false)}
+              >
                 Keep running
               </button>
               <button className="btn btn-danger" type="button" onClick={cancelTransfer}>

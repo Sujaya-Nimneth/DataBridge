@@ -18,7 +18,25 @@
 | **⚡ Background Processing** | Celery workers for async transfer execution with Redis broker |
 | **🐳 Containerized** | Full Docker Compose setup for one-command deployment |
 
+## 🎨 Interface
+
+The frontend uses a dark **Data Terminal** design system: one text face,
+monospace reserved for literal code and identifiers, a 1px accent line for
+every selection, tabular figures, and quiet pale status pills. The committed
+WCAG 2.2 AA tier, token roles and state rules live in
+[`design/DESIGN-SYSTEM.md`](design/DESIGN-SYSTEM.md) and
+[`design/accessibility-requirements.md`](design/accessibility-requirements.md).
+
+Key screens: Dashboard (`/`), Connections (`/connections`), Data Explorer
+(`/explorer`), Transfers (`/transfers`, deep-linkable detail at
+`/transfers/:id`), Monitoring (`/monitoring`) and, for admins, Users
+(`/admin/users`). Filters, tabs and the selected table are kept in the URL so
+views can be shared.
+
 ## 📸 Screenshots
+
+> These capture the previous amber/teal theme and are kept for reference;
+> refresh them from the demo stack after the redesign.
 
 | | |
 |---|---|

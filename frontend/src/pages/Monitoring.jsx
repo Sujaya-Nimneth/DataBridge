@@ -10,8 +10,7 @@ import toast from 'react-hot-toast';
 import { Freshness, SkeletonBlock, SkeletonRows } from '../components/States';
 import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
 
-const number = (n) =>
-  n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n);
+const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
 
 function Monitoring() {
   const [stats, setStats] = useState(null);
@@ -80,7 +79,9 @@ function Monitoring() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="page-header"><h1>Monitoring</h1></div>
+        <div className="page-header">
+          <h1>Monitoring</h1>
+        </div>
         <div className="stats-grid" aria-hidden="true">
           {Array.from({ length: 4 }, (_, i) => (
             <div className="stat-card" key={i}>
@@ -89,7 +90,9 @@ function Monitoring() {
             </div>
           ))}
         </div>
-        <div className="card"><SkeletonRows rows={5} /></div>
+        <div className="card">
+          <SkeletonRows rows={5} />
+        </div>
       </div>
     );
   }
@@ -106,7 +109,12 @@ function Monitoring() {
           <p>Platform health, metrics, and activity tracking</p>
         </div>
         <div className="page-header-actions">
-          <Freshness updatedAt={updatedAt} onRefresh={loadAll} loading={loading} stale={loadError} />
+          <Freshness
+            updatedAt={updatedAt}
+            onRefresh={loadAll}
+            loading={loading}
+            stale={loadError}
+          />
           {isAdmin && (
             <Link className="btn btn-secondary" to="/admin/users">
               Users
@@ -172,8 +180,7 @@ function Monitoring() {
                 </h2>
                 <span className="card-subtitle">Last 7 days</span>
               </div>
-              {metrics?.status_counts &&
-              Object.keys(metrics.status_counts).length > 0 ? (
+              {metrics?.status_counts && Object.keys(metrics.status_counts).length > 0 ? (
                 <div className="distribution-list">
                   {Object.entries(metrics.status_counts).map(([status, count]) => {
                     const total = Object.values(metrics.status_counts).reduce((a, b) => a + b, 0);
@@ -217,8 +224,12 @@ function Monitoring() {
                   const heightPct =
                     maxDailyCount > 0 ? Math.max((day.count / maxDailyCount) * 100, 3) : 3;
                   const date = new Date(day.date);
-                  const label = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
-                  const full = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+                  const label = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+                    date,
+                  );
+                  const full = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+                    date,
+                  );
                   return (
                     <div key={day.date} className="bar-chart-column">
                       <span className="bar-chart-value">{day.count}</span>
