@@ -8,6 +8,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
 import Modal from '../components/Modal';
+import { TabList } from '../components/Tabs';
 import {
   HiOutlinePlus,
   HiOutlinePlay,
@@ -26,6 +27,7 @@ function Transfers() {
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [confirmCancel, setConfirmCancel] = useState(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [wizardErrors, setWizardErrors] = useState([]);
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -258,8 +260,9 @@ function Transfers() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="loading-overlay" role="status">
+          <div className="spinner spinner-lg" aria-hidden="true"></div>
+          <span>Loading transfers…</span>
         </div>
       </div>
     );
@@ -276,16 +279,16 @@ function Transfers() {
     wizardForm.target_connection_id,
   );
 
-  const requestCloseWizard = () => {
-    if (
-      wizardHasContent &&
-      !window.confirm('Discard this transfer? Your selections will be lost.')
-    ) {
-      return;
-    }
+  const closeWizard = () => {
+    setConfirmDiscard(false);
     setShowWizard(false);
     // Clear the deep link so a refresh does not reopen the wizard.
     if (newParam === '1') setSearchParams({}, { replace: true });
+  };
+
+  const requestCloseWizard = () => {
+    if (wizardHasContent) setConfirmDiscard(true);
+    else closeWizard();
   };
 
   const statusTabs = [
@@ -324,20 +327,13 @@ function Transfers() {
           <span className="card-subtitle">{transfers.length} in this view</span>
         </div>
 
-        <div className="tabs" role="tablist" aria-label="Filter transfers by status">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={statusFilter === tab.id}
-              className={`tab ${statusFilter === tab.id ? 'active' : ''}`}
-              onClick={() => setStatusFilter(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <TabList
+          tabs={statusTabs}
+          activeId={statusFilter}
+          onChange={setStatusFilter}
+          label="Filter transfers by status"
+          idPrefix="transfer-status"
+        />
 
         {transfers.length === 0 ? (
           <div className="empty-state">
@@ -405,7 +401,15 @@ function Transfers() {
                       <td className="transfer-progress-cell">
                         {tx.status === 'running' ? (
                           <div>
-                            <div className="progress-bar progress-bar-spaced">
+                            <div
+                              className="progress-bar progress-bar-spaced"
+                              role="progressbar"
+                              aria-label={`Progress of ${tx.source_table} transfer`}
+                              aria-valuenow={tx.transferred_rows ?? 0}
+                              aria-valuemin={0}
+                              aria-valuemax={tx.total_rows ?? 0}
+                              aria-valuetext={`${formatRows(tx.transferred_rows)} of ${formatRows(tx.total_rows)} rows`}
+                            >
                               <div
                                 className="progress-fill animated"
                                 style={{ width: `${progress}%` }}
@@ -743,8 +747,9 @@ function Transfers() {
                   Untick columns to skip them; type a new name to rename them in the target table.
                 </div>
                 {columnsLoading ? (
-                  <div className="loading-overlay">
-                    <div className="spinner"></div>
+                  <div className="loading-overlay" role="status">
+                    <div className="spinner" aria-hidden="true"></div>
+                    <span>Loading columns…</span>
                   </div>
                 ) : sourceColumns.length === 0 ? (
                   <div className="text-muted text-sm">
@@ -850,7 +855,7 @@ function Transfers() {
       {/* Cancel Confirmation Modal */}
       {confirmCancel && (
         <Modal
-          title="Cancel Transfer"
+          title="Cancel transfer"
           maxWidth="440px"
           onClose={() => setConfirmCancel(null)}
           footer={
@@ -860,7 +865,7 @@ function Transfers() {
                 className="btn btn-secondary"
                 onClick={() => setConfirmCancel(null)}
               >
-                Keep Running
+                Keep running
               </button>
               <button
                 type="button"
@@ -868,7 +873,7 @@ function Transfers() {
                 onClick={() => cancelTransfer(confirmCancel.id)}
                 id="btn-confirm-cancel"
               >
-                Cancel Transfer
+                Cancel transfer
               </button>
             </>
           }
@@ -878,8 +883,33 @@ function Transfers() {
             to <span className="font-mono">{confirmCancel.target_table}</span>?
           </p>
           <p className="text-sm text-muted">
-            Rows already staged are discarded — the target table is left untouched.
+            Rows already staged are discarded. The target table is left untouched.
           </p>
+        </Modal>
+      )}
+
+      {/* Discard unsaved wizard confirmation */}
+      {confirmDiscard && (
+        <Modal
+          title="Discard this transfer?"
+          maxWidth="440px"
+          onClose={() => setConfirmDiscard(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmDiscard(false)}
+              >
+                Keep editing
+              </button>
+              <button type="button" className="btn btn-danger" onClick={closeWizard}>
+                Discard
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted">Your selections will be lost.</p>
         </Modal>
       )}
     </div>

@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { connectionsAPI, discoveryAPI } from '../api/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { TabList } from '../components/Tabs';
 import toast from 'react-hot-toast';
 import {
   HiOutlineChevronRight,
@@ -175,8 +176,9 @@ function Explorer() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="loading-overlay" role="status">
+          <div className="spinner spinner-lg" aria-hidden="true"></div>
+          <span>Loading connections…</span>
         </div>
       </div>
     );
@@ -371,37 +373,23 @@ function Explorer() {
                     </button>
                   </div>
 
-                  <div className="tabs" role="tablist" aria-label="Table views">
-                    <button
-                      type="button"
-                      role="tab"
-                      id="tab-columns"
-                      aria-selected={activeTab === 'columns'}
-                      aria-controls="panel-columns"
-                      className={`tab ${activeTab === 'columns' ? 'active' : ''}`}
-                      onClick={() => setTab('columns')}
-                    >
-                      Columns
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      id="tab-preview"
-                      aria-selected={activeTab === 'preview'}
-                      aria-controls="panel-preview"
-                      className={`tab ${activeTab === 'preview' ? 'active' : ''}`}
-                      onClick={loadPreview}
-                    >
-                      Data Preview
-                    </button>
-                  </div>
+                  <TabList
+                    tabs={[
+                      { id: 'columns', label: 'Columns' },
+                      { id: 'preview', label: 'Data preview' },
+                    ]}
+                    activeId={activeTab}
+                    onChange={(id) => (id === 'preview' ? loadPreview() : setTab('columns'))}
+                    label="Table views"
+                    idPrefix="explorer"
+                  />
 
                   {activeTab === 'columns' && (
                     <div
                       className="data-table-wrapper"
                       role="tabpanel"
-                      id="panel-columns"
-                      aria-labelledby="tab-columns"
+                      id="explorer-panel-columns"
+                      aria-labelledby="explorer-columns"
                     >
                       <table className="data-table">
                         <thead>
@@ -445,44 +433,52 @@ function Explorer() {
                     </div>
                   )}
 
-                  {activeTab === 'preview' &&
-                    (previewLoading ? (
-                      <div className="loading-overlay">
-                        <div className="spinner spinner-lg"></div>
-                      </div>
-                    ) : preview ? (
-                      <>
-                        <div className="text-sm text-muted mb-4">
-                          Showing {preview.rows.length} of{' '}
-                          {new Intl.NumberFormat().format(preview.total_rows)} rows
+                  {activeTab === 'preview' && (
+                    <div
+                      role="tabpanel"
+                      id="explorer-panel-preview"
+                      aria-labelledby="explorer-preview"
+                    >
+                      {previewLoading ? (
+                        <div className="loading-overlay" role="status">
+                          <div className="spinner spinner-lg" aria-hidden="true"></div>
+                          <span>Loading preview…</span>
                         </div>
-                        <div
-                          className="data-table-wrapper"
-                          style={{ maxHeight: '500px', overflowY: 'auto' }}
-                        >
-                          <table className="data-table">
-                            <thead>
-                              <tr>
-                                {preview.columns.map((col) => (
-                                  <th key={col}>{col}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {preview.rows.map((row, i) => (
-                                <tr key={i}>
-                                  {row.map((cell, j) => (
-                                    <td key={j}>
-                                      {cell ?? <span className="text-muted">null</span>}
-                                    </td>
+                      ) : preview ? (
+                        <>
+                          <div className="text-sm text-muted mb-4">
+                            Showing {preview.rows.length} of{' '}
+                            {new Intl.NumberFormat().format(preview.total_rows)} rows
+                          </div>
+                          <div
+                            className="data-table-wrapper"
+                            style={{ maxHeight: '500px', overflowY: 'auto' }}
+                          >
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  {preview.columns.map((col) => (
+                                    <th key={col}>{col}</th>
                                   ))}
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    ) : null)}
+                              </thead>
+                              <tbody>
+                                {preview.rows.map((row, i) => (
+                                  <tr key={i}>
+                                    {row.map((cell, j) => (
+                                      <td key={j}>
+                                        {cell ?? <span className="text-muted">null</span>}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

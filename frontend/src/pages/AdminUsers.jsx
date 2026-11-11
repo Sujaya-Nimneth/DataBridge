@@ -66,10 +66,10 @@ function AdminUsers() {
       <div className="page-header">
         <div>
           <h1>Users</h1>
-          <p className="page-finding">
+          <p className="page-finding" aria-live="polite">
             {loading
               ? 'Loading…'
-              : `${users.length} registered account${users.length === 1 ? '' : 's'}.`}
+              : `${new Intl.NumberFormat().format(users.length)} registered account${users.length === 1 ? '' : 's'}.`}
           </p>
         </div>
         <button className="btn btn-secondary" type="button" onClick={load} disabled={loading}>
@@ -130,8 +130,12 @@ function AdminUsers() {
                         {u.is_active ? 'active' : 'inactive'}
                       </span>
                     </td>
-                    <td className="text-right">{u.connection_count}</td>
-                    <td className="text-right">{u.transfer_count}</td>
+                    <td className="text-right">
+                      {new Intl.NumberFormat().format(u.connection_count)}
+                    </td>
+                    <td className="text-right">
+                      {new Intl.NumberFormat().format(u.transfer_count)}
+                    </td>
                     <td className="text-sm text-muted">
                       {dateFormat.format(new Date(u.created_at))}
                     </td>

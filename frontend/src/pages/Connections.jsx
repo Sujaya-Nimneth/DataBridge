@@ -167,8 +167,9 @@ function Connections() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="loading-overlay" role="status">
+          <div className="spinner spinner-lg" aria-hidden="true"></div>
+          <span>Loading connections…</span>
         </div>
       </div>
     );

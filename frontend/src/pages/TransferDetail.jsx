@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { transfersAPI } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 import { Freshness, SkeletonBlock } from '../components/States';
+import Modal from '../components/Modal';
 import { HiOutlineArrowRight, HiOutlineArrowLeft, HiOutlineStop } from 'react-icons/hi';
 
 const statusBadge = (status) =>
@@ -93,15 +94,6 @@ function TransferDetail() {
   useEffect(() => {
     if (pollError) setStale(true);
   }, [pollError]);
-
-  useEffect(() => {
-    if (!confirmCancel) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') setConfirmCancel(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [confirmCancel]);
 
   const cancelTransfer = async () => {
     try {
@@ -237,7 +229,16 @@ function TransferDetail() {
           </div>
         </div>
         {(isLive || job.status === 'completed') && pct !== null && (
-          <div className="progress-bar mt-4" style={{ height: '8px' }}>
+          <div
+            className="progress-bar mt-4"
+            style={{ height: '8px' }}
+            role="progressbar"
+            aria-label="Rows transferred"
+            aria-valuenow={transferred}
+            aria-valuemin={0}
+            aria-valuemax={total ?? 0}
+            aria-valuetext={`${number(transferred)} of ${number(total)} rows`}
+          >
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
         )}
@@ -280,18 +281,12 @@ function TransferDetail() {
       </section>
 
       {confirmCancel && (
-        <div className="confirm-overlay" role="presentation">
-          <div
-            className="confirm-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="cancel-title"
-          >
-            <h2 id="cancel-title">Cancel this transfer?</h2>
-            <p className="text-sm text-muted mt-4">
-              Rows already staged are discarded. The target table is left untouched.
-            </p>
-            <div className="flex gap-2 justify-between mt-6">
+        <Modal
+          title="Cancel this transfer?"
+          maxWidth="440px"
+          onClose={() => setConfirmCancel(false)}
+          footer={
+            <>
               <button
                 className="btn btn-secondary"
                 type="button"
@@ -302,9 +297,13 @@ function TransferDetail() {
               <button className="btn btn-danger" type="button" onClick={cancelTransfer}>
                 Cancel transfer
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm text-muted">
+            Rows already staged are discarded. The target table is left untouched.
+          </p>
+        </Modal>
       )}
     </div>
   );
