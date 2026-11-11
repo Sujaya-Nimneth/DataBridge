@@ -1,18 +1,85 @@
 /**
- * Dashboard page with stats, activity feed, and connection health overview.
+ * Dashboard — answers "is anything failing right now, and what ran today?".
+ *
+ * The largest block is the one divided KPI container; the one finding is stated
+ * under the title next to the primary job. See design/DESIGN-SYSTEM.md.
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
-import {
-  HiOutlineClipboardList,
-  HiOutlineDatabase,
-  HiOutlineSwitchHorizontal,
-  HiOutlineCheckCircle,
-  HiOutlineExclamationCircle,
-  HiOutlineTrendingUp,
-} from 'react-icons/hi';
+import { HiOutlineClipboardList, HiOutlineDatabase } from 'react-icons/hi';
+import { SkeletonBlock } from '../components/States';
+import { Freshness } from '../components/States';
+
+const statusBadge = (status) =>
+  ({
+    completed: 'badge-success',
+    running: 'badge-primary',
+    failed: 'badge-danger',
+    pending: 'badge-warning',
+    cancelled: 'badge-neutral',
+    success: 'badge-success',
+    unknown: 'badge-neutral',
+  })[status] || 'badge-neutral';
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const date = new Date(ts);
+  const diff = Date.now() - date;
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
+function Kpi({ label, value, unit, to }) {
+  const inner = (
+    <>
+      <span className="stat-label">{label}</span>
+      <span className="stat-value">
+        {value}
+        {unit && <span className="stat-unit"> {unit}</span>}
+      </span>
+    </>
+  );
+  return to ? (
+    <Link className="stat-card stat-card-action" to={to}>
+      {inner}
+    </Link>
+  ) : (
+    <div className="stat-card">{inner}</div>
+  );
+}
+
+function Finding({ stats }) {
+  if (!stats) return null;
+  if (stats.failed_today > 0) {
+    return (
+      <p className="page-finding">
+        <span className="finding-mark" aria-hidden="true">
+          !
+        </span>
+        {stats.failed_today} transfer{stats.failed_today === 1 ? '' : 's'} failed today.{' '}
+        <Link to="/transfers">Review the failures</Link>
+      </p>
+    );
+  }
+  if (stats.running_transfers > 0) {
+    return (
+      <p className="page-finding">
+        {stats.running_transfers} transfer{stats.running_transfers === 1 ? '' : 's'} running now.{' '}
+        <Link to="/transfers">Watch progress</Link>.
+      </p>
+    );
+  }
+  return (
+    <p className="page-finding">
+      No failures today. {stats.completed_today} transfer
+      {stats.completed_today === 1 ? '' : 's'} completed.
+    </p>
+  );
+}
 
 function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -20,272 +87,192 @@ function Dashboard() {
   const [connStatuses, setConnStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   const loadDashboard = async () => {
-    setLoading(true);
     setLoadError(null);
     try {
       const [statsRes, activityRes, connRes] = await Promise.all([
         monitoringAPI.getDashboard(),
-        monitoringAPI.getActivity(10),
+        monitoringAPI.getActivity(5),
         monitoringAPI.getConnectionStatuses(),
       ]);
       setStats(statsRes.data);
       setActivity(activityRes.data);
       setConnStatuses(connRes.data);
+      setUpdatedAt(new Date());
     } catch (err) {
-      // Surface the failure instead of silently rendering zeros.
-      setLoadError(err.response?.data?.message || 'Could not load dashboard data.');
+      setLoadError(err.response?.data?.message || "Couldn't load dashboard data.");
     } finally {
       setLoading(false);
     }
   };
 
-  const statusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'var(--color-success)';
-      case 'running':
-        return 'var(--color-primary)';
-      case 'failed':
-        return 'var(--color-danger)';
-      case 'pending':
-        return 'var(--color-warning)';
-      case 'cancelled':
-        return 'var(--color-text-muted)';
-      default:
-        return 'var(--color-text-muted)';
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const classes = {
-      completed: 'badge-success',
-      running: 'badge-primary',
-      failed: 'badge-danger',
-      pending: 'badge-warning',
-      cancelled: 'badge-neutral',
-      success: 'badge-success',
-      unknown: 'badge-neutral',
-    };
-    return classes[status] || 'badge-neutral';
-  };
-
-  const formatTime = (ts) => {
-    if (!ts) return '';
-    const date = new Date(ts);
-    const now = new Date();
-    const diff = now - date;
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
-  };
-
-  if (loading) {
-    return (
-      <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Dashboard</h1>
-        <p>Overview of your data connectivity platform</p>
+        <div>
+          <h1>Dashboard</h1>
+          {!loading && !loadError && <Finding stats={stats} />}
+        </div>
+        <div className="page-header-actions">
+          <Freshness updatedAt={updatedAt} onRefresh={loadDashboard} loading={loading} />
+          <Link className="btn btn-primary" to="/transfers?new=1">
+            New transfer
+          </Link>
+        </div>
       </div>
 
       {loadError && (
         <div className="alert alert-danger" role="alert">
-          <span>{loadError}</span>
+          <span>{loadError} Data below may be out of date.</span>
           <button type="button" className="btn btn-secondary btn-sm" onClick={loadDashboard}>
             Retry
           </button>
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <button
-          type="button"
-          className="stat-card stat-card-action"
-          onClick={() => navigate('/connections')}
-        >
-          <div className="stat-card-icon primary">
-            <HiOutlineDatabase />
-          </div>
-          <div className="stat-value">{stats?.total_connections || 0}</div>
-          <div className="stat-label">Total Connections</div>
-        </button>
-
-        <div className="stat-card">
-          <div className="stat-card-icon success">
-            <HiOutlineCheckCircle />
-          </div>
-          <div className="stat-value">{stats?.active_connections || 0}</div>
-          <div className="stat-label">Active Connections</div>
+      {loading ? (
+        <div className="stats-grid" aria-hidden="true">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div className="stat-card" key={i}>
+              <SkeletonBlock width="70%" height={12} />
+              <SkeletonBlock width="45%" height={26} />
+            </div>
+          ))}
         </div>
-
-        <button
-          type="button"
-          className="stat-card stat-card-action"
-          onClick={() => navigate('/transfers')}
-        >
-          <div className="stat-card-icon info">
-            <HiOutlineSwitchHorizontal />
-          </div>
-          <div className="stat-value">{stats?.running_transfers || 0}</div>
-          <div className="stat-label">Running Transfers</div>
-        </button>
-
-        <div className="stat-card">
-          <div className="stat-card-icon warning">
-            <HiOutlineTrendingUp />
-          </div>
-          <div className="stat-value">{stats?.success_rate || 0}%</div>
-          <div className="stat-label">Success Rate</div>
+      ) : (
+        <div className="stats-grid">
+          <Kpi label="Connections" value={stats?.total_connections ?? '–'} to="/connections" />
+          <Kpi label="Reachable" value={stats?.active_connections ?? '–'} />
+          <Kpi label="Running" value={stats?.running_transfers ?? '–'} to="/transfers" />
+          <Kpi label="Completed today" value={stats?.completed_today ?? '–'} />
+          <Kpi label="Failed today" value={stats?.failed_today ?? '–'} />
+          <Kpi
+            label="Finished successfully"
+            value={stats ? `${stats.success_rate}` : '–'}
+            unit={stats ? '%' : undefined}
+          />
         </div>
+      )}
 
-        <div className="stat-card">
-          <div className="stat-card-icon success">
-            <HiOutlineClipboardList />
-          </div>
-          <div className="stat-value">{stats?.completed_today || 0}</div>
-          <div className="stat-label">Completed Today</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card-icon danger">
-            <HiOutlineExclamationCircle />
-          </div>
-          <div className="stat-value">{stats?.failed_today || 0}</div>
-          <div className="stat-label">Failed Today</div>
-        </div>
-      </div>
-
-      {/* Two Column Layout */}
       <div className="grid-2">
-        {/* Recent Activity */}
-        <div className="card">
+        <section className="card" aria-labelledby="recent-activity-title">
           <div className="card-header">
             <div>
-              <div className="card-title">Recent Activity</div>
-              <div className="card-subtitle">Latest transfer operations</div>
+              <h2 className="card-title" id="recent-activity-title">
+                Recent activity
+              </h2>
+              <div className="card-subtitle">Latest 5 transfer operations</div>
             </div>
+            <Link className="btn btn-ghost btn-sm" to="/transfers">
+              View all
+            </Link>
           </div>
-          {activity.length === 0 ? (
-            <div className="empty-state" style={{ padding: '40px 20px' }}>
+          {loading ? (
+            <div className="activity-feed" aria-hidden="true">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div className="activity-item" key={i}>
+                  <SkeletonBlock width="100%" height={14} />
+                </div>
+              ))}
+            </div>
+          ) : activity.length === 0 ? (
+            <div className="empty-state">
               <div className="empty-state-icon">
                 <HiOutlineClipboardList aria-hidden="true" />
               </div>
-              <h3>No activity yet</h3>
-              <p>Start by creating a connection and running your first transfer</p>
+              <h3>No transfers yet</h3>
+              <p>Create a connection, then move your first table.</p>
+              <Link className="btn btn-primary" to="/connections">
+                Add a connection
+              </Link>
             </div>
           ) : (
             <div className="activity-feed">
               {activity.map((item) => (
                 <div key={item.id} className="activity-item">
-                  <div className="activity-dot" style={{ background: statusColor(item.status) }} />
+                  <div className={`activity-dot ${statusBadge(item.status)}`} aria-hidden="true" />
                   <div className="activity-content">
                     <div className="activity-description">{item.description}</div>
-                    <div className="flex items-center gap-2">
-                      <span className={`badge ${getStatusBadge(item.status)}`}>
-                        <span className="badge-dot"></span>
+                    <div className="activity-meta">
+                      <span className={`badge ${statusBadge(item.status)}`}>
+                        <span className="badge-dot" aria-hidden="true" />
                         {item.status}
                       </span>
-                      <span className="activity-time">{formatTime(item.timestamp)}</span>
+                      <time className="activity-time" dateTime={item.timestamp}>
+                        {formatTime(item.timestamp)}
+                      </time>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Connection Health */}
-        <div className="card">
+        <section className="card" aria-labelledby="connection-health-title">
           <div className="card-header">
             <div>
-              <div className="card-title">Connection Health</div>
-              <div className="card-subtitle">Status of configured databases</div>
+              <h2 className="card-title" id="connection-health-title">
+                Connection health
+              </h2>
+              <div className="card-subtitle">Most recent test per database</div>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/connections')}>
-              View All
-            </button>
+            <Link className="btn btn-ghost btn-sm" to="/connections">
+              View all
+            </Link>
           </div>
-          {connStatuses.length === 0 ? (
-            <div className="empty-state" style={{ padding: '40px 20px' }}>
+          {loading ? (
+            <div aria-hidden="true">
+              {Array.from({ length: 2 }, (_, i) => (
+                <SkeletonBlock key={i} width="100%" height={42} />
+              ))}
+            </div>
+          ) : connStatuses.length === 0 ? (
+            <div className="empty-state">
               <div className="empty-state-icon">
                 <HiOutlineDatabase aria-hidden="true" />
               </div>
-              <h3>No connections</h3>
-              <p>Add a database connection to get started</p>
-              <button className="btn btn-primary" onClick={() => navigate('/connections')}>
-                Add Connection
-              </button>
+              <h3>No connections yet</h3>
+              <p>Add a PostgreSQL or MySQL database to get started.</p>
+              <Link className="btn btn-primary" to="/connections">
+                Add a connection
+              </Link>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <ul className="object-list">
               {connStatuses.map((conn) => (
-                <div
-                  key={conn.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-bg-glass)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                >
-                  <div
-                    className={`connection-type-icon ${conn.db_type}`}
-                    style={{ width: '32px', height: '32px', fontSize: '12px' }}
-                  >
+                <li className="object-row" key={conn.id}>
+                  <span className="object-kind font-mono" aria-hidden="true">
                     {conn.db_type === 'postgresql' ? 'PG' : 'MY'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600' }}>{conn.name}</div>
-                  </div>
-                  <span className={`badge ${getStatusBadge(conn.status)}`}>
-                    <span className="badge-dot"></span>
+                  </span>
+                  <span className="object-name truncate">{conn.name}</span>
+                  <span className={`badge ${statusBadge(conn.status)}`}>
+                    <span className="badge-dot" aria-hidden="true" />
                     {conn.status}
                   </span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Total Rows Stats */}
-      {stats?.total_rows_transferred > 0 && (
-        <div className="card mt-6" style={{ textAlign: 'center', padding: '32px' }}>
-          <div className="text-muted text-sm mb-4">Total Rows Transferred</div>
-          <div
-            style={{
-              fontSize: '48px',
-              fontWeight: '800',
-              letterSpacing: '-2px',
-              background: 'var(--gradient-primary)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            {stats.total_rows_transferred.toLocaleString()}
+      {!loading && stats?.total_rows_transferred > 0 && (
+        <section className="card mt-6" aria-label="Total rows transferred">
+          <div className="row-total">
+            <span className="stat-label">Total rows transferred</span>
+            <span className="row-total-value">
+              {new Intl.NumberFormat().format(stats.total_rows_transferred)}
+            </span>
+            <span className="card-subtitle">Across {stats.total_transfers ?? 0} transfers</span>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

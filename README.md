@@ -18,7 +18,26 @@
 | **⚡ Background Processing** | Celery workers for async transfer execution with Redis broker |
 | **🐳 Containerized** | Full Docker Compose setup for one-command deployment |
 
+## 🎨 Interface
+
+The frontend uses a dark **Data Terminal** design system: one text face,
+monospace reserved for literal code and identifiers, a 1px accent line for
+every selection, tabular figures, and quiet pale status pills. The committed
+WCAG 2.2 AA tier, token roles and state rules live in
+[`design/DESIGN-SYSTEM.md`](design/DESIGN-SYSTEM.md) and
+[`design/accessibility-requirements.md`](design/accessibility-requirements.md).
+
+Key screens: Dashboard (`/`), Connections (`/connections`), Data Explorer
+(`/explorer`), Transfers (`/transfers`, deep-linkable detail at
+`/transfers/:id`), Monitoring (`/monitoring`) and, for admins, Users
+(`/admin/users`). Filters, tabs and the selected table are kept in the URL so
+views can be shared.
+
 ## 📸 Screenshots
+
+Captured from the production build of the SPA at 1440×900 against a
+representative API response (the same shape the [demo stack](#60-second-demo-with-sample-data)
+serves). All views show the current Data Terminal design system.
 
 | | |
 |---|---|
@@ -35,7 +54,7 @@
 | ![Transfer history](docs/screenshots/transfers.png) | |
 </details>
 
-*Captured from the [demo stack](#60-second-demo-with-sample-data) after its scripted PostgreSQL → MySQL transfer.*
+*The transfer detail and history views show the sample PostgreSQL → MySQL transfer from the [demo stack](#60-second-demo-with-sample-data).*
 
 ## 🏗️ Architecture
 
@@ -306,7 +325,7 @@ See [docs/TESTING.md](docs/TESTING.md) for what each suite covers.
 | **Staging tables for atomicity** | Cross-database copies cannot share a transaction; staging + publish makes transfers atomic anyway and re-runnable without duplicates |
 | **Fernet encryption** | The app needs to decrypt credentials to connect to user databases — symmetric encryption fits this use case, with the key stored separately in env vars |
 | **SQLAlchemy inspect()** | Lets me reflect any user database schema dynamically without knowing its structure ahead of time |
-| **Vanilla CSS** | Gives me full control over the dark-theme glassmorphism design without any framework overhead |
+| **Vanilla CSS + design tokens** | Full control over the dark Data Terminal design system (three-layer CSS custom-property tokens) without framework lock-in; every UI class maps to a token |
 | **Batch processing + streaming cursors** | Without batching and server-side cursors, a 10M-row transfer would exhaust memory |
 
 ---

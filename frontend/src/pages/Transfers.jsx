@@ -4,10 +4,11 @@
 
 import { useState, useEffect } from 'react';
 import { connectionsAPI, discoveryAPI, transfersAPI } from '../api/client';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
 import Modal from '../components/Modal';
+import { TabList } from '../components/Tabs';
 import {
   HiOutlinePlus,
   HiOutlinePlay,
@@ -17,18 +18,22 @@ import {
   HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
+const formatRows = (n) => (n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n));
+
 function Transfers() {
   const [transfers, setTransfers] = useState([]);
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
-  const [showDetail, setShowDetail] = useState(null);
-  const [detailLogs, setDetailLogs] = useState([]);
   const [confirmCancel, setConfirmCancel] = useState(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [wizardErrors, setWizardErrors] = useState([]);
-  const detailId = showDetail?.id ?? null;
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const newParam = searchParams.get('new');
+  const statusFilter = searchParams.get('status') || 'all';
+  const sourceTableState = location.state?.sourceTable;
 
   // Wizard form state
   const [wizardForm, setWizardForm] = useState({
@@ -56,25 +61,30 @@ function Transfers() {
 
   useEffect(() => {
     loadData();
-    if (location.state?.sourceTable) {
-      const st = location.state.sourceTable;
+    if (sourceTableState) {
       setWizardForm((prev) => ({
         ...prev,
-        source_connection_id: st.connId,
-        source_schema: st.schema,
-        source_table: st.tableName,
+        source_connection_id: sourceTableState.connId,
+        source_schema: sourceTableState.schema,
+        source_table: sourceTableState.tableName,
       }));
       setShowWizard(true);
       setWizardStep(2);
+    } else if (newParam === '1') {
+      // Deep link from the Dashboard's primary action.
+      setShowWizard(true);
+      setWizardStep(1);
     }
-    // Deep-link prefill only needs to run when the navigation state changes.
-  }, [location.state?.sourceTable]);
+    // Deep-link prefill only needs to run when navigation state / query changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceTableState, newParam]);
 
-  // Poll for running transfers
+  // Poll for running transfers, honouring the URL filter.
   const hasRunning = transfers.some((t) => t.status === 'running' || t.status === 'pending');
   usePolling(
     async (signal) => {
-      const res = await transfersAPI.list(undefined, signal);
+      const params = statusFilter !== 'all' ? { status: statusFilter } : undefined;
+      const res = await transfersAPI.list(params, signal);
       setTransfers(res.data);
     },
     5000,
@@ -83,11 +93,15 @@ function Transfers() {
 
   const loadData = async () => {
     try {
-      const [txRes, connRes] = await Promise.all([transfersAPI.list(), connectionsAPI.list()]);
+      const params = statusFilter !== 'all' ? { status: statusFilter } : undefined;
+      const [txRes, connRes] = await Promise.all([
+        transfersAPI.list(params),
+        connectionsAPI.list(),
+      ]);
       setTransfers(txRes.data);
       setConnections(connRes.data);
     } catch {
-      toast.error('Failed to load data');
+      toast.error('Failed to load transfers');
     } finally {
       setLoading(false);
     }
@@ -165,8 +179,9 @@ function Transfers() {
         column_mappings: buildColumnMappings(),
       };
       await transfersAPI.create(payload);
-      toast.success('Transfer started!');
+      toast.success('Transfer started');
       setShowWizard(false);
+      if (newParam === '1') setSearchParams({}, { replace: true });
       setWizardStep(1);
       setWizardForm({
         source_connection_id: '',
@@ -192,27 +207,23 @@ function Transfers() {
     }
   };
 
-  const viewDetail = (transfer) => {
-    setShowDetail(transfer);
-    setDetailLogs([]);
-  };
+  // Reload the list whenever the URL status filter changes (deep-linkable).
+  useEffect(() => {
+    if (!loading) loadData();
+    // loadData is recreated per render; the filter value is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
-  // Keep an open detail modal in sync with the running job.
-  const detailIsLive = showDetail?.status === 'running' || showDetail?.status === 'pending';
-  usePolling(
-    async (signal) => {
-      if (!detailId) return null;
-      const [jobRes, logsRes] = await Promise.all([
-        transfersAPI.get(detailId, signal),
-        transfersAPI.getLogs(detailId, signal),
-      ]);
-      setShowDetail(jobRes.data);
-      setDetailLogs(logsRes.data);
-      return jobRes.data;
-    },
-    3000,
-    Boolean(detailId) && detailIsLive,
-  );
+  // Warn before a reload/tab close while an unsaved wizard is open.
+  useEffect(() => {
+    if (!showWizard) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [showWizard]);
 
   const cancelTransfer = async (id) => {
     try {
@@ -237,7 +248,7 @@ function Transfers() {
   };
 
   const formatDuration = (start, end) => {
-    if (!start) return '—';
+    if (!start) return '–';
     const s = new Date(start);
     const e = end ? new Date(end) : new Date();
     const diff = Math.floor((e - s) / 1000);
@@ -249,45 +260,101 @@ function Transfers() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="loading-overlay" role="status">
+          <div className="spinner spinner-lg" aria-hidden="true"></div>
+          <span>Loading transfers…</span>
         </div>
       </div>
     );
   }
 
+  const setStatusFilter = (value) => {
+    setSearchParams(value === 'all' ? {} : { status: value }, { replace: true });
+  };
+
+  const wizardHasContent = Boolean(
+    wizardForm.source_table ||
+    wizardForm.target_table ||
+    wizardForm.filter_query ||
+    wizardForm.target_connection_id,
+  );
+
+  const closeWizard = () => {
+    setConfirmDiscard(false);
+    setShowWizard(false);
+    // Clear the deep link so a refresh does not reopen the wizard.
+    if (newParam === '1') setSearchParams({}, { replace: true });
+  };
+
+  const requestCloseWizard = () => {
+    if (wizardHasContent) setConfirmDiscard(true);
+    else closeWizard();
+  };
+
+  const statusTabs = [
+    { id: 'all', label: 'All' },
+    { id: 'running', label: 'Running' },
+    { id: 'completed', label: 'Completed' },
+    { id: 'failed', label: 'Failed' },
+    { id: 'cancelled', label: 'Cancelled' },
+  ];
+
   return (
     <div className="page-container">
-      <div className="page-header page-header-actions">
+      <div className="page-header">
         <div>
-          <h1>Data Transfers</h1>
+          <h1>Data transfers</h1>
           <p>Move data between configured database connections</p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setShowWizard(true);
-            setWizardStep(1);
-          }}
-          id="btn-new-transfer"
-        >
-          <HiOutlinePlus /> New Transfer
-        </button>
+        <div className="page-header-actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setShowWizard(true);
+              setWizardStep(1);
+            }}
+            id="btn-new-transfer"
+          >
+            <HiOutlinePlus aria-hidden="true" /> New transfer
+          </button>
+        </div>
       </div>
 
       {/* Transfer History */}
-      <div className="card">
+      <section className="card" aria-label="Transfer history">
         <div className="card-header">
-          <div className="card-title">Transfer History</div>
+          <h2 className="card-title">Transfer history</h2>
+          <span className="card-subtitle">{transfers.length} in this view</span>
         </div>
+
+        <TabList
+          tabs={statusTabs}
+          activeId={statusFilter}
+          onChange={setStatusFilter}
+          label="Filter transfers by status"
+          idPrefix="transfer-status"
+        />
 
         {transfers.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">
               <HiOutlineSwitchHorizontal aria-hidden="true" />
             </div>
-            <h3>No transfers yet</h3>
-            <p>Create your first data transfer to move data between databases.</p>
+            <h3>{statusFilter === 'all' ? 'No transfers yet' : `No ${statusFilter} transfers`}</h3>
+            <p>
+              {statusFilter === 'all'
+                ? 'Create your first data transfer to move data between databases.'
+                : 'Try another status, or clear the filter.'}
+            </p>
+            {statusFilter !== 'all' && (
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setStatusFilter('all')}
+              >
+                Show all
+              </button>
+            )}
           </div>
         ) : (
           <div className="data-table-wrapper">
@@ -334,23 +401,28 @@ function Transfers() {
                       <td className="transfer-progress-cell">
                         {tx.status === 'running' ? (
                           <div>
-                            <div className="progress-bar progress-bar-spaced">
+                            <div
+                              className="progress-bar progress-bar-spaced"
+                              role="progressbar"
+                              aria-label={`Progress of ${tx.source_table} transfer`}
+                              aria-valuenow={tx.transferred_rows ?? 0}
+                              aria-valuemin={0}
+                              aria-valuemax={tx.total_rows ?? 0}
+                              aria-valuetext={`${formatRows(tx.transferred_rows)} of ${formatRows(tx.total_rows)} rows`}
+                            >
                               <div
                                 className="progress-fill animated"
                                 style={{ width: `${progress}%` }}
                               ></div>
                             </div>
                             <div className="text-xs text-muted">
-                              {tx.transferred_rows?.toLocaleString()} /{' '}
-                              {tx.total_rows?.toLocaleString() || '?'} rows
+                              {formatRows(tx.transferred_rows)} / {formatRows(tx.total_rows)} rows
                             </div>
                           </div>
                         ) : tx.status === 'completed' ? (
-                          <span className="text-sm">
-                            {tx.transferred_rows?.toLocaleString()} rows
-                          </span>
+                          <span className="text-sm">{formatRows(tx.transferred_rows)} rows</span>
                         ) : (
-                          <span className="text-muted text-sm">—</span>
+                          <span className="text-muted text-sm">–</span>
                         )}
                       </td>
                       <td className="text-sm text-muted">
@@ -358,13 +430,14 @@ function Transfers() {
                       </td>
                       <td>
                         <div className="flex gap-2">
-                          <button
+                          <Link
                             className="btn btn-ghost btn-sm"
-                            onClick={() => viewDetail(tx)}
+                            to={`/transfers/${tx.id}`}
                             title="View details"
+                            aria-label={`View details of ${tx.source_table} transfer`}
                           >
-                            <HiOutlineEye />
-                          </button>
+                            <HiOutlineEye aria-hidden="true" />
+                          </Link>
                           {(tx.status === 'running' || tx.status === 'pending') && (
                             <button
                               className="btn btn-ghost btn-sm btn-danger-icon"
@@ -384,14 +457,14 @@ function Transfers() {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Transfer Wizard Modal */}
       {showWizard && (
         <Modal
-          title="New Transfer"
+          title="New transfer"
           maxWidth="600px"
-          onClose={() => setShowWizard(false)}
+          onClose={requestCloseWizard}
           footer={
             <>
               {wizardStep > 1 && (
@@ -464,7 +537,6 @@ function Transfers() {
                   <div
                     className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                   >
-                    <div className="wizard-step-number">{isCompleted ? '✓' : stepNum}</div>
                     <span className="wizard-step-label">{label}</span>
                   </div>
                   {i < 3 && (
@@ -640,17 +712,23 @@ function Transfers() {
             <div>
               <div className="form-group">
                 <label className="form-label" htmlFor="wizard-filter">
-                  Filter (Optional SQL WHERE clause)
+                  Filter (optional SQL WHERE clause)
                 </label>
                 <input
                   id="wizard-filter"
                   className="form-input font-mono"
                   value={wizardForm.filter_query}
-                  placeholder="e.g. status = 'active' AND created_at > '2024-01-01'"
+                  placeholder="status = 'active' AND created_at > '2024-01-01'…"
+                  spellCheck="false"
+                  autoComplete="off"
+                  aria-describedby="wizard-filter-hint"
                   onChange={(e) =>
                     setWizardForm((prev) => ({ ...prev, filter_query: e.target.value }))
                   }
                 />
+                <span className="form-hint" id="wizard-filter-hint">
+                  Plain column comparisons only. The server validates the clause before it runs.
+                </span>
               </div>
               <label className="form-checkbox">
                 <input
@@ -669,8 +747,9 @@ function Transfers() {
                   Untick columns to skip them; type a new name to rename them in the target table.
                 </div>
                 {columnsLoading ? (
-                  <div className="loading-overlay">
-                    <div className="spinner"></div>
+                  <div className="loading-overlay" role="status">
+                    <div className="spinner" aria-hidden="true"></div>
+                    <span>Loading columns…</span>
                   </div>
                 ) : sourceColumns.length === 0 ? (
                   <div className="text-muted text-sm">
@@ -721,23 +800,19 @@ function Transfers() {
               <div className="transfer-summary">
                 <div className="transfer-summary-grid">
                   <div>
-                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
-                      SOURCE
-                    </div>
+                    <div className="field-label">Source</div>
                     <div className="font-semibold">
                       {connections.find((c) => c.id === wizardForm.source_connection_id)?.name ||
-                        '—'}
+                        '–'}
                     </div>
                     <div className="font-mono text-sm text-muted">{wizardForm.source_table}</div>
                   </div>
                   <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
                   <div>
-                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
-                      TARGET
-                    </div>
+                    <div className="field-label">Target</div>
                     <div className="font-semibold">
                       {connections.find((c) => c.id === wizardForm.target_connection_id)?.name ||
-                        '—'}
+                        '–'}
                     </div>
                     <div className="font-mono text-sm text-muted">
                       {wizardForm.target_table || wizardForm.source_table}
@@ -746,7 +821,7 @@ function Transfers() {
                 </div>
                 {wizardForm.filter_query && (
                   <div className="transfer-summary-extra">
-                    <div className="text-xs text-muted">FILTER</div>
+                    <div className="field-label">Filter</div>
                     <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
                       {wizardForm.filter_query}
                     </div>
@@ -759,7 +834,7 @@ function Transfers() {
                   const skipped = sourceColumns.length - Object.keys(mappings).length;
                   return (
                     <div className="transfer-summary-extra">
-                      <div className="text-xs text-muted">COLUMNS</div>
+                      <div className="field-label">Columns</div>
                       <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
                         {Object.keys(mappings).length} of {sourceColumns.length} transferred
                         {renamed.length > 0 &&
@@ -777,77 +852,10 @@ function Transfers() {
         </Modal>
       )}
 
-      {/* Transfer Detail Modal */}
-      {showDetail && (
-        <Modal title="Transfer Details" maxWidth="700px" onClose={() => setShowDetail(null)}>
-          <div className="transfer-summary-grid mb-6">
-            <div>
-              <div className="text-xs text-muted">SOURCE</div>
-              <div className="font-semibold">{showDetail.source_connection_name}</div>
-              <div className="font-mono text-sm text-muted">{showDetail.source_table}</div>
-            </div>
-            <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
-            <div>
-              <div className="text-xs text-muted">TARGET</div>
-              <div className="font-semibold">{showDetail.target_connection_name}</div>
-              <div className="font-mono text-sm text-muted">{showDetail.target_table}</div>
-            </div>
-          </div>
-
-          <div className="flex gap-3 mb-4">
-            <span className={`badge ${getStatusBadge(showDetail.status)}`}>
-              <span className="badge-dot"></span>
-              {showDetail.status}
-            </span>
-            <span className="text-sm text-muted">
-              {showDetail.transferred_rows?.toLocaleString()} /{' '}
-              {showDetail.total_rows?.toLocaleString() || '?'} rows
-            </span>
-            <span className="text-sm text-muted">
-              Duration: {formatDuration(showDetail.started_at, showDetail.completed_at)}
-            </span>
-          </div>
-
-          {showDetail.status === 'running' && showDetail.total_rows && (
-            <div className="progress-bar mb-4" style={{ height: '8px' }}>
-              <div
-                className="progress-fill animated"
-                style={{
-                  width: `${Math.round((showDetail.transferred_rows / showDetail.total_rows) * 100)}%`,
-                }}
-              ></div>
-            </div>
-          )}
-
-          {showDetail.error_message && (
-            <div className="alert alert-danger mb-4">
-              <div className="text-sm font-bold text-danger mb-4">Error</div>
-              <div className="text-sm font-mono">{showDetail.error_message}</div>
-            </div>
-          )}
-
-          <div className="card-title mb-4">Execution Logs</div>
-          <div className="log-viewer">
-            {detailLogs.length === 0 ? (
-              <div className="text-muted text-sm" style={{ padding: '20px', textAlign: 'center' }}>
-                No logs available
-              </div>
-            ) : (
-              detailLogs.map((log) => (
-                <div key={log.id} className="log-entry">
-                  <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  <span className={`log-level ${log.level}`}>{log.level}</span>
-                  <span className="log-message">{log.message}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Modal>
-      )}
       {/* Cancel Confirmation Modal */}
       {confirmCancel && (
         <Modal
-          title="Cancel Transfer"
+          title="Cancel transfer"
           maxWidth="440px"
           onClose={() => setConfirmCancel(null)}
           footer={
@@ -857,7 +865,7 @@ function Transfers() {
                 className="btn btn-secondary"
                 onClick={() => setConfirmCancel(null)}
               >
-                Keep Running
+                Keep running
               </button>
               <button
                 type="button"
@@ -865,7 +873,7 @@ function Transfers() {
                 onClick={() => cancelTransfer(confirmCancel.id)}
                 id="btn-confirm-cancel"
               >
-                Cancel Transfer
+                Cancel transfer
               </button>
             </>
           }
@@ -875,8 +883,33 @@ function Transfers() {
             to <span className="font-mono">{confirmCancel.target_table}</span>?
           </p>
           <p className="text-sm text-muted">
-            Rows already staged are discarded — the target table is left untouched.
+            Rows already staged are discarded. The target table is left untouched.
           </p>
+        </Modal>
+      )}
+
+      {/* Discard unsaved wizard confirmation */}
+      {confirmDiscard && (
+        <Modal
+          title="Discard this transfer?"
+          maxWidth="440px"
+          onClose={() => setConfirmDiscard(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmDiscard(false)}
+              >
+                Keep editing
+              </button>
+              <button type="button" className="btn btn-danger" onClick={closeWizard}>
+                Discard
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted">Your selections will be lost.</p>
         </Modal>
       )}
     </div>

@@ -12,12 +12,13 @@ import {
   HiOutlineSearch,
   HiOutlineSwitchHorizontal,
   HiOutlineChartBar,
+  HiOutlineUsers,
   HiOutlineLogout,
   HiOutlineMenu,
   HiOutlineX,
 } from 'react-icons/hi';
 
-const navItems = [
+const baseNavItems = [
   { path: '/', icon: HiOutlineViewGrid, label: 'Dashboard' },
   { path: '/connections', icon: HiOutlineDatabase, label: 'Connections' },
   { path: '/explorer', icon: HiOutlineSearch, label: 'Data Explorer' },
@@ -30,6 +31,10 @@ function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const navItems =
+    user?.role === 'admin'
+      ? [...baseNavItems, { path: '/admin/users', icon: HiOutlineUsers, label: 'Users' }]
+      : baseNavItems;
 
   // Close the drawer whenever the route changes.
   useEffect(() => {
@@ -87,7 +92,12 @@ function Sidebar() {
       </header>
 
       {menuOpen && (
-        <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close navigation menu"
+        />
       )}
 
       <aside
@@ -118,6 +128,8 @@ function Sidebar() {
               key={item.path}
               to={item.path}
               end={item.path === '/'}
+              title={item.label}
+              aria-label={item.label}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               id={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
             >

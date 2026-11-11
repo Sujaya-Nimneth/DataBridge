@@ -21,7 +21,7 @@ function Connections() {
   const [editConn, setEditConn] = useState(null);
   const [testing, setTesting] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [formErrors, setFormErrors] = useState([]);
+  const [formErrors, setFormErrors] = useState({});
   const [form, setForm] = useState({
     name: '',
     db_type: 'postgresql',
@@ -84,11 +84,12 @@ function Connections() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormErrors([]);
+    setFormErrors({});
 
     const port = Number(form.port);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      setFormErrors(['port: must be a whole number between 1 and 65535']);
+      setFormErrors({ port: 'Enter a whole number between 1 and 65535.' });
+      document.getElementById('input-port')?.focus();
       return;
     }
 
@@ -107,9 +108,9 @@ function Connections() {
     } catch (err) {
       const details = err.response?.data?.details;
       if (Array.isArray(details) && details.length > 0) {
-        setFormErrors(details.map((d) => `${d.field}: ${d.message}`));
+        setFormErrors(Object.fromEntries(details.map((d) => [d.field, d.message])));
       } else {
-        toast.error(err.response?.data?.message || 'Operation failed');
+        toast.error(err.response?.data?.message || 'Check the fields and try again.');
       }
     }
   };
@@ -166,8 +167,9 @@ function Connections() {
   if (loading) {
     return (
       <div className="page-container">
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg"></div>
+        <div className="loading-overlay" role="status">
+          <div className="spinner spinner-lg" aria-hidden="true"></div>
+          <span>Loading connections…</span>
         </div>
       </div>
     );
@@ -175,14 +177,18 @@ function Connections() {
 
   return (
     <div className="page-container">
-      <div className="page-header page-header-actions">
+      <div className="page-header">
         <div>
           <h1>Connections</h1>
-          <p>Manage your database connections</p>
+          <p>
+            {connections.length} database{connections.length === 1 ? '' : 's'} configured
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate} id="btn-add-connection">
-          <HiOutlinePlus /> Add Connection
-        </button>
+        <div className="page-header-actions">
+          <button className="btn btn-primary" onClick={openCreate} id="btn-add-connection">
+            <HiOutlinePlus aria-hidden="true" /> Add connection
+          </button>
+        </div>
       </div>
 
       {connections.length === 0 ? (
@@ -191,10 +197,10 @@ function Connections() {
             <div className="empty-state-icon">
               <HiOutlineDatabase aria-hidden="true" />
             </div>
-            <h3>No connections configured</h3>
-            <p>Add your first database connection to start exploring and transferring data.</p>
+            <h3>No connections yet</h3>
+            <p>Add a PostgreSQL or MySQL database to start exploring and moving data.</p>
             <button className="btn btn-primary" onClick={openCreate}>
-              <HiOutlinePlus /> Add Connection
+              <HiOutlinePlus aria-hidden="true" /> Add connection
             </button>
           </div>
         </div>
@@ -225,7 +231,11 @@ function Connections() {
                 {!conn.is_active && <span className="badge badge-neutral">inactive</span>}
                 {conn.last_tested_at && (
                   <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
-                    Tested {new Date(conn.last_tested_at).toLocaleString()}
+                    Tested{' '}
+                    {new Intl.DateTimeFormat(undefined, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(conn.last_tested_at))}
                   </span>
                 )}
               </div>
@@ -238,14 +248,18 @@ function Connections() {
                   id={`btn-test-${conn.id}`}
                 >
                   {testing === conn.id ? (
-                    <div className="spinner" style={{ width: '14px', height: '14px' }}></div>
+                    <span
+                      className="spinner"
+                      style={{ width: '14px', height: '14px' }}
+                      aria-hidden="true"
+                    />
                   ) : (
-                    <HiOutlineStatusOnline />
+                    <HiOutlineStatusOnline aria-hidden="true" />
                   )}
                   Test
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => openEdit(conn)}>
-                  <HiOutlinePencil /> Edit
+                  <HiOutlinePencil aria-hidden="true" /> Edit
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
@@ -273,32 +287,35 @@ function Connections() {
           title={editConn ? 'Edit Connection' : 'New Connection'}
           onClose={() => setShowModal(false)}
         >
-          <form onSubmit={handleSubmit}>
-            {formErrors.length > 0 && (
+          <form onSubmit={handleSubmit} noValidate>
+            {formErrors._form && (
               <div className="alert alert-danger" role="alert">
-                <ul className="wizard-error-list">
-                  {formErrors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
+                <span>{formErrors._form}</span>
               </div>
             )}
             <div className="form-group">
               <label className="form-label" htmlFor="input-conn-name">
-                Connection Name
+                Connection name
               </label>
               <input
                 id="input-conn-name"
                 className="form-input"
                 value={form.name}
-                placeholder="My Production DB"
+                placeholder="Production database…"
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                aria-invalid={formErrors.name ? 'true' : undefined}
+                aria-describedby={formErrors.name ? 'err-conn-name' : undefined}
                 required
               />
+              {formErrors.name && (
+                <span className="form-error" id="err-conn-name" role="alert">
+                  {formErrors.name}
+                </span>
+              )}
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="input-conn-type">
-                Database Type
+                Database type
               </label>
               <select
                 id="input-conn-type"
@@ -326,10 +343,17 @@ function Connections() {
                   id="input-conn-host"
                   className="form-input"
                   value={form.host}
-                  placeholder="localhost"
+                  placeholder="localhost…"
                   onChange={(e) => setForm({ ...form, host: e.target.value })}
+                  aria-invalid={formErrors.host ? 'true' : undefined}
+                  aria-describedby={formErrors.host ? 'err-conn-host' : undefined}
                   required
                 />
+                {formErrors.host && (
+                  <span className="form-error" id="err-conn-host" role="alert">
+                    {formErrors.host}
+                  </span>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="input-port">
@@ -339,6 +363,7 @@ function Connections() {
                   id="input-port"
                   className="form-input"
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   max="65535"
                   value={form.port}
@@ -348,13 +373,24 @@ function Connections() {
                       port: e.target.value === '' ? '' : Number(e.target.value),
                     })
                   }
+                  aria-invalid={formErrors.port ? 'true' : undefined}
+                  aria-describedby={formErrors.port ? 'err-conn-port' : 'hint-conn-port'}
                   required
                 />
+                {formErrors.port ? (
+                  <span className="form-error" id="err-conn-port" role="alert">
+                    {formErrors.port}
+                  </span>
+                ) : (
+                  <span className="form-hint" id="hint-conn-port">
+                    Whole number, 1–65535.
+                  </span>
+                )}
               </div>
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="input-conn-db">
-                Database Name
+                Database name
               </label>
               <input
                 id="input-conn-db"
@@ -387,11 +423,16 @@ function Connections() {
                   id="input-conn-pass"
                   className="form-input"
                   type="password"
+                  autoComplete={editConn ? 'off' : 'new-password'}
                   value={form.password}
-                  placeholder={editConn ? '(unchanged)' : 'Enter password'}
+                  placeholder={editConn ? 'Leave blank to keep…' : 'Enter password…'}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  aria-describedby="hint-conn-pass"
                   required={!editConn}
                 />
+                <span className="form-hint" id="hint-conn-pass">
+                  {editConn ? 'Leave blank to keep the stored password.' : 'Stored encrypted.'}
+                </span>
               </div>
             </div>
             <label className="form-checkbox">
@@ -411,7 +452,7 @@ function Connections() {
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" id="btn-save-connection">
-                {editConn ? 'Update' : 'Create'} Connection
+                {editConn ? 'Save changes' : 'Add connection'}
               </button>
             </div>
           </form>
@@ -430,7 +471,7 @@ function Connections() {
                 className="btn btn-secondary"
                 onClick={() => setConfirmDelete(null)}
               >
-                Keep Connection
+                Keep connection
               </button>
               <button
                 type="button"
@@ -438,7 +479,7 @@ function Connections() {
                 onClick={() => handleDelete(confirmDelete.id)}
                 id="btn-confirm-delete"
               >
-                Delete
+                Delete connection
               </button>
             </>
           }
