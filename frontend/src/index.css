@@ -1209,13 +1209,6 @@ pre,
   white-space: nowrap;
 }
 
-/* Index numbers are a generated-page tell: keep the label, drop the circle. */
-.wizard-step-number,
-.wizard-step.active .wizard-step-number,
-.wizard-step.completed .wizard-step-number {
-  display: none;
-}
-
 .wizard-step.active,
 .wizard-step.active .wizard-step-label {
   color: var(--text);

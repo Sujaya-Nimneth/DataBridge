@@ -93,7 +93,7 @@ function Login() {
                 id="input-fullname"
                 className="form-input"
                 type="text"
-                placeholder="Jane Doe…"
+                placeholder="Alex Kim…"
                 autoComplete="name"
                 spellCheck="false"
                 value={form.fullName}
@@ -111,7 +111,7 @@ function Login() {
               id="input-email"
               className="form-input"
               type="email"
-              placeholder="you@example.com…"
+              placeholder="name@company.com…"
               autoComplete="email"
               spellCheck="false"
               value={form.email}

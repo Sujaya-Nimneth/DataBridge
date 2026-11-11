@@ -527,7 +527,6 @@ function Transfers() {
                   <div
                     className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                   >
-                    <div className="wizard-step-number">{isCompleted ? '✓' : stepNum}</div>
                     <span className="wizard-step-label">{label}</span>
                   </div>
                   {i < 3 && (
