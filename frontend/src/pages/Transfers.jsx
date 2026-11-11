@@ -17,6 +17,9 @@ import {
   HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
+const formatRows = (n) =>
+  n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n);
+
 function Transfers() {
   const [transfers, setTransfers] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -244,7 +247,7 @@ function Transfers() {
   };
 
   const formatDuration = (start, end) => {
-    if (!start) return '—';
+    if (!start) return '–';
     const s = new Date(start);
     const e = end ? new Date(end) : new Date();
     const diff = Math.floor((e - s) / 1000);
@@ -403,16 +406,13 @@ function Transfers() {
                               ></div>
                             </div>
                             <div className="text-xs text-muted">
-                              {tx.transferred_rows?.toLocaleString()} /{' '}
-                              {tx.total_rows?.toLocaleString() || '?'} rows
+                              {formatRows(tx.transferred_rows)} / {formatRows(tx.total_rows)} rows
                             </div>
                           </div>
                         ) : tx.status === 'completed' ? (
-                          <span className="text-sm">
-                            {tx.transferred_rows?.toLocaleString()} rows
-                          </span>
+                          <span className="text-sm">{formatRows(tx.transferred_rows)} rows</span>
                         ) : (
-                          <span className="text-muted text-sm">—</span>
+                          <span className="text-muted text-sm">–</span>
                         )}
                       </td>
                       <td className="text-sm text-muted">
@@ -789,23 +789,19 @@ function Transfers() {
               <div className="transfer-summary">
                 <div className="transfer-summary-grid">
                   <div>
-                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
-                      SOURCE
-                    </div>
+                    <div className="field-label">Source</div>
                     <div className="font-semibold">
                       {connections.find((c) => c.id === wizardForm.source_connection_id)?.name ||
-                        '—'}
+                        '–'}
                     </div>
                     <div className="font-mono text-sm text-muted">{wizardForm.source_table}</div>
                   </div>
                   <HiOutlineArrowRight className="transfer-summary-arrow" aria-hidden="true" />
                   <div>
-                    <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>
-                      TARGET
-                    </div>
+                    <div className="field-label">Target</div>
                     <div className="font-semibold">
                       {connections.find((c) => c.id === wizardForm.target_connection_id)?.name ||
-                        '—'}
+                        '–'}
                     </div>
                     <div className="font-mono text-sm text-muted">
                       {wizardForm.target_table || wizardForm.source_table}
@@ -814,7 +810,7 @@ function Transfers() {
                 </div>
                 {wizardForm.filter_query && (
                   <div className="transfer-summary-extra">
-                    <div className="text-xs text-muted">FILTER</div>
+                    <div className="field-label">Filter</div>
                     <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
                       {wizardForm.filter_query}
                     </div>
@@ -827,7 +823,7 @@ function Transfers() {
                   const skipped = sourceColumns.length - Object.keys(mappings).length;
                   return (
                     <div className="transfer-summary-extra">
-                      <div className="text-xs text-muted">COLUMNS</div>
+                      <div className="field-label">Columns</div>
                       <div className="font-mono text-sm" style={{ marginTop: '4px' }}>
                         {Object.keys(mappings).length} of {sourceColumns.length} transferred
                         {renamed.length > 0 &&

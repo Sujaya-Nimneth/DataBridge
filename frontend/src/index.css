@@ -245,6 +245,19 @@ pre,
   }
 }
 
+/* One quiet entrance: headings, then KPIs, then panels. Travel drops under
+   reduced motion but the content is never hidden when the animation fails. */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-header { animation: enter 320ms ease both; }
+.stats-grid { animation: enter 320ms ease 70ms both; }
+.page-container > .card,
+.page-container > .grid-2 > .card,
+.page-container > section.card { animation: enter 320ms ease 140ms both; }
+
 /* ============================================================
    3. Layout frame
    ============================================================ */
@@ -327,6 +340,9 @@ pre,
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   z-index: 95;
+  border: none;
+  padding: 0;
+  cursor: default;
 }
 
 /* ============================================================

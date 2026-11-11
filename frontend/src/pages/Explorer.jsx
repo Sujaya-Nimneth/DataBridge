@@ -337,7 +337,7 @@ function Explorer() {
                         })}
                         {schemas.length === 0 && (
                           <div className="text-muted text-sm" style={{ padding: '8px 24px' }}>
-                            Loading schemas...
+                            Loading schemas…
                           </div>
                         )}
                       </div>
@@ -437,7 +437,7 @@ function Explorer() {
                                 )}
                                 {col.is_foreign_key && <span className="badge badge-info">FK</span>}
                               </td>
-                              <td className="text-muted font-mono text-sm">{col.default || '—'}</td>
+                              <td className="text-muted font-mono text-sm">{col.default || '–'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -453,7 +453,8 @@ function Explorer() {
                     ) : preview ? (
                       <>
                         <div className="text-sm text-muted mb-4">
-                          Showing {preview.rows.length} of {preview.total_rows.toLocaleString()}{' '}
+                          Showing {preview.rows.length} of{' '}
+                          {new Intl.NumberFormat().format(preview.total_rows)}{' '}
                           rows
                         </div>
                         <div
@@ -473,7 +474,7 @@ function Explorer() {
                                 <tr key={i}>
                                   {row.map((cell, j) => (
                                     <td key={j}>
-                                      {cell ?? <span className="text-muted">NULL</span>}
+                                      {cell ?? <span className="text-muted">null</span>}
                                     </td>
                                   ))}
                                 </tr>

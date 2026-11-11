@@ -92,7 +92,12 @@ function Sidebar() {
       </header>
 
       {menuOpen && (
-        <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close navigation menu"
+        />
       )}
 
       <aside

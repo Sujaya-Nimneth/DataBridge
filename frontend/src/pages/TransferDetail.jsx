@@ -92,6 +92,15 @@ function TransferDetail() {
     if (pollError) setStale(true);
   }, [pollError]);
 
+  useEffect(() => {
+    if (!confirmCancel) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setConfirmCancel(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [confirmCancel]);
+
   const cancelTransfer = async () => {
     try {
       await transfersAPI.cancel(id);
@@ -269,13 +278,12 @@ function TransferDetail() {
       </section>
 
       {confirmCancel && (
-        <div className="confirm-overlay" role="presentation" onClick={() => setConfirmCancel(false)}>
+        <div className="confirm-overlay" role="presentation">
           <div
             className="confirm-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="cancel-title"
-            onClick={(e) => e.stopPropagation()}
           >
             <h2 id="cancel-title">Cancel this transfer?</h2>
             <p className="text-sm text-muted mt-4">

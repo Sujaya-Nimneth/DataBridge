@@ -70,8 +70,11 @@ function Monitoring() {
   };
 
   const formatTime = (ts) => {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleString();
+    if (!ts) return '–';
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(ts));
   };
 
   if (loading) {
@@ -281,7 +284,7 @@ function Monitoring() {
                         </span>
                       </td>
                       <td className="text-sm text-muted">{formatTime(conn.last_tested_at)}</td>
-                      <td className="text-sm text-muted truncate">{conn.message || '—'}</td>
+                      <td className="text-sm text-muted truncate">{conn.message || '–'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -325,7 +328,7 @@ function Monitoring() {
                           {item.status}
                         </span>
                       </td>
-                      <td className="text-sm">{item.rows?.toLocaleString() || '—'}</td>
+                      <td className="text-sm">{number(item.rows)}</td>
                       <td className="text-sm text-muted">{formatTime(item.timestamp)}</td>
                     </tr>
                   ))}
