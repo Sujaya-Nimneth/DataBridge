@@ -12,13 +12,13 @@ it is named under "Not run" rather than reported as a pass.
 
 | Check | Before | After | Command |
 |---|---|---|---|
-| App-screen lint (design-taste-frontend) | **15 FAIL / 61 WARN** on 3 files | **0 FAIL / 35 WARN** on all 17 production files | `node lint.mjs --app frontend/src/...` |
-| Vitest | 18 passed (4 files) | **28 passed (6 files)** | `npm test` |
+| App-screen lint (design-taste-frontend) | **15 FAIL / 61 WARN** on 3 files | **0 FAIL / 34 WARN** on all production files | `node lint.mjs --app frontend/src/...` |
+| Vitest | 18 passed (4 files) | **32 passed (7 files)** | `npm test` |
 | ESLint | pass | **pass** | `npm run lint` |
 | Prettier | n/a | **pass** | `npm run format:check` |
 | Vite production build | pass | **pass** | `npm run build` |
 
-The 35 remaining WARNs are all app-screen allowances documented in
+The 34 remaining WARNs are all app-screen allowances documented in
 `DESIGN-SYSTEM.md`: monospace used only for literal code/identifiers,
 shadows only on dialogs/focus/selection/inset selection marks, sentence-case
 section labels, and em-dashes in comments. In page mode (wrong for a
@@ -75,8 +75,17 @@ the column-mapping rows all work.
 
 `design/ux/` holds one UX spec per screen plus the interaction pattern
 library. Each spec records the screen's one question, states, data sources,
-URL state, keyboard flow and ≥5 testable acceptance criteria. The review
-verdict is recorded in `design/ux/REVIEW.md`.
+URL state, keyboard flow and 7 testable acceptance criteria. The review
+verdict is **APPROVED** (0 blocking, 0 advisory, 0 unassessed dimensions) in
+`design/ux/REVIEW.md`.
+
+Spec authoring surfaced six real WCAG 2.2 AA gaps, all fixed before the
+review: WAI-ARIA tabs with roving focus and `tabpanel` semantics (new
+`components/Tabs.jsx`, 4 unit tests), the transfer-detail cancel dialog now
+reuses the focus-trapping `Modal`, the wizard discard `window.confirm` became
+an in-app dialog, `role="progressbar"` with aria values on both progress
+bars, `role="status"` on every loading overlay, and `Intl` + `aria-live` on
+the admin users view. See `design/ux/REVIEW.md` for the full table.
 
 ## Not run / limitations
 
