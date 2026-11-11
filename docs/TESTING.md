@@ -37,7 +37,13 @@ npm test                         # vitest + React Testing Library
 | `tests/test_transfer_worker.py` | End-to-end transfer engine: staging, publish, cancel, failure, reaper |
 | `tests/test_security_hardening.py` | Filter/identifier injection, token rotation, rate limits, activation, admin role |
 | `tests/test_observability.py` | Deep health probes, request IDs |
-| `frontend/src/**/*.test.jsx` | usePolling, AuthContext, axios interceptors, Login flows |
+| `frontend/src/**/*.test.{js,jsx}` | usePolling, AuthContext, axios interceptors, Login flows, shared state primitives, and the API calls behind the redesigned routes |
+
+Frontend checks: `npm test` (Vitest), `npm run lint` (ESLint),
+`npm run format:check` (Prettier), `npm run build` (Vite). The visual
+direction is additionally gated by the app-screen lint/inspector from the
+design-taste-frontend skill (`lint.mjs --app` must report 0 FAIL); see
+[design/DESIGN-SYSTEM.md](../design/DESIGN-SYSTEM.md).
 
 ## Conventions
 

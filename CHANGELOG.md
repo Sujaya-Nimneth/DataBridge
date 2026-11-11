@@ -29,9 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   skip link, labelled main landmark, `aria-live` toasts, focus-visible
   everywhere, inline errors tied with `aria-describedby`, Escape/reduced
   motion, keyboard-operable backdrops and dialogs.
-- The screenshots in `docs/screenshots/` show the previous theme and are
-  kept for reference; capture fresh ones from the demo stack before the
-  next release.
+- Refreshed all nine `docs/screenshots/` captures against the redesigned
+  production build (including the new transfer detail route, admin users
+  route and column-mapping wizard step).
 
 ### Fixed
 

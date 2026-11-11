@@ -14,20 +14,33 @@ The frontend is a Single Page Application (SPA) that communicates with the backe
 
 **Component Architecture:**
 ```
-App.jsx (Router + Auth Guard)
-├── Sidebar.jsx (Navigation)
+App.jsx (Router + Auth Guard + Skip Link)
+├── Sidebar.jsx (Icon rail / mobile drawer)
+├── components/States.jsx (Loading, Empty, Error, Freshness, Value)
+├── components/Modal.jsx (Accessible dialog)
+├── context/AuthContext.jsx
+├── hooks/usePolling.js
 ├── Login.jsx (Auth forms)
 ├── Dashboard.jsx (Stats + Activity)
 ├── Connections.jsx (CRUD + Test)
 ├── Explorer.jsx (Schema Tree + Preview)
 ├── Transfers.jsx (Wizard + History)
-└── Monitoring.jsx (Metrics + Logs)
+├── TransferDetail.jsx (/transfers/:id — progress + logs)
+├── Monitoring.jsx (Metrics + Activity)
+└── AdminUsers.jsx (/admin/users — admin only)
 ```
 
+**Routes**: `/login`, `/`, `/connections`, `/explorer`, `/transfers`,
+`/transfers/:id`, `/monitoring`, `/admin/users`. Filters, tabs, the selected
+table and the new-transfer wizard are reflected in the URL so views are
+shareable (`?status=`, `?new=1`, `?conn=`/`?schema=`/`?table=`/`?tab=`,
+`?view=`). See [design/DESIGN-SYSTEM.md](../design/DESIGN-SYSTEM.md).
+
 **Key Design Decisions:**
-- **Vanilla CSS Design System**: I went with custom CSS over Tailwind/Bootstrap to have full control over the dark-theme glassmorphism design. It also avoids framework lock-in.
+- **Vanilla CSS design tokens**: A three-layer token system (primitive → semantic → component) in `index.css` drives the dark *Data Terminal* design system — one text face, monospace reserved for literal code/identifiers, a 1px accent line for selections and tabular figures. No gradients, glass or resting shadows. No framework lock-in; the WCAG 2.2 AA tier is committed in [design/accessibility-requirements.md](../design/accessibility-requirements.md).
 - **Context API for Auth**: React Context handles auth state well enough here. Pulling in Redux or Zustand would be overkill for managing a single user session.
 - **Polling for Progress**: Transfer progress uses chained-`setTimeout` polling (see `usePolling`) so a slow response can never stack overlapping requests; in-flight requests are aborted on unmount. WebSockets would be more efficient at scale, but polling is simpler, reliable, and auto-stops when transfers finish.
+- **Deep-linkable detail and admin views**: Transfer detail was promoted from a modal to a route so it can be shared and Back is predictable; the admin users list moved from a Monitoring tab to its own role-gated route. Both keep the API as the source of truth.
 
 ---
 

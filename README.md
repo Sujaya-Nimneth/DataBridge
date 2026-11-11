@@ -35,8 +35,9 @@ views can be shared.
 
 ## 📸 Screenshots
 
-> These capture the previous amber/teal theme and are kept for reference;
-> refresh them from the demo stack after the redesign.
+Captured from the production build of the SPA at 1440×900 against a
+representative API response (the same shape the [demo stack](#60-second-demo-with-sample-data)
+serves). All views show the current Data Terminal design system.
 
 | | |
 |---|---|
@@ -53,7 +54,7 @@ views can be shared.
 | ![Transfer history](docs/screenshots/transfers.png) | |
 </details>
 
-*Captured from the [demo stack](#60-second-demo-with-sample-data) after its scripted PostgreSQL → MySQL transfer.*
+*The transfer detail and history views show the sample PostgreSQL → MySQL transfer from the [demo stack](#60-second-demo-with-sample-data).*
 
 ## 🏗️ Architecture
 
@@ -324,7 +325,7 @@ See [docs/TESTING.md](docs/TESTING.md) for what each suite covers.
 | **Staging tables for atomicity** | Cross-database copies cannot share a transaction; staging + publish makes transfers atomic anyway and re-runnable without duplicates |
 | **Fernet encryption** | The app needs to decrypt credentials to connect to user databases — symmetric encryption fits this use case, with the key stored separately in env vars |
 | **SQLAlchemy inspect()** | Lets me reflect any user database schema dynamically without knowing its structure ahead of time |
-| **Vanilla CSS** | Gives me full control over the dark-theme glassmorphism design without any framework overhead |
+| **Vanilla CSS + design tokens** | Full control over the dark Data Terminal design system (three-layer CSS custom-property tokens) without framework lock-in; every UI class maps to a token |
 | **Batch processing + streaming cursors** | Without batching and server-side cursors, a 10M-row transfer would exhaust memory |
 
 ---
