@@ -76,14 +76,26 @@ export const databridgeTheme = defineTheme({
     '--color-error': ['#c43f57', '#e5566f'],
     '--color-warning': ['#a97c25', '#d9a441'],
     '--color-info': ['#3a6ea8', '#4a8ad6'],
-    '--color-success-muted': ['#44a2821a', '#44a2821f'],
-    '--color-error-muted': ['#e5566f1a', '#e5566f1f'],
-    '--color-warning-muted': ['#d9a4411a', '#d9a4411f'],
-    '--color-info-muted': ['#4a8ad61a', '#4a8ad61f'],
+    '--color-success-muted': ['#e6f4ef', '#1b2828'],
+    '--color-error-muted': ['#fbe9ec', '#2c1a20'],
+    '--color-warning-muted': ['#fbf3df', '#2a2416'],
+    '--color-info-muted': ['#e7f0fa', '#1a2330'],
     '--color-on-success': ['#ffffff', '#101013'],
     '--color-on-error': ['#ffffff', '#101013'],
     '--color-on-warning': ['#171719', '#101013'],
     '--color-on-info': ['#ffffff', '#101013'],
+    '--color-on-success-muted': ['#1f5c47', '#5fc39c'],
+    '--color-on-error-muted': ['#9e263c', '#f0758b'],
+    '--color-on-warning-muted': ['#7a5712', '#d9a441'],
+    '--color-on-info-muted': ['#285282', '#7fb0ea'],
+    '--color-text-success': ['#1f5c47', '#5fc39c'],
+    '--color-text-error': ['#9e263c', '#f0758b'],
+    '--color-text-warning': ['#7a5712', '#d9a441'],
+    '--color-text-info': ['#285282', '#7fb0ea'],
+
+    // Three radii by role per DESIGN-SYSTEM.md (4px control, 6px card).
+    '--radius-element': '4px',
+    '--radius-container': '6px',
 
     // Focus is visible on every control (>= 3:1 against its surface).
     '--focus-outline-color': 'var(--color-accent)',
@@ -100,12 +112,93 @@ export const databridgeTheme = defineTheme({
   // the product's one selection mark, applied where a component exposes a
   // selected/active state rather than a filled pill.
   components: {
+    'app-shell': {
+      base: {
+        backgroundColor: 'var(--color-background-body)',
+        color: 'var(--color-text-primary)',
+      },
+    },
+    'app-shell-header': {
+      base: {
+        backgroundColor: 'var(--color-background-surface)',
+        borderBottom: '1px solid var(--color-border)',
+      },
+    },
+    'app-shell-sidenav': {
+      base: {
+        backgroundColor: 'var(--color-background-surface)',
+        borderInlineEnd: '1px solid var(--color-border)',
+      },
+    },
+    'side-nav': {
+      base: {
+        backgroundColor: 'var(--color-background-surface)',
+        color: 'var(--color-text-secondary)',
+      },
+    },
+    'side-nav-item': {
+      base: {
+        position: 'relative',
+        borderRadius: 'var(--radius-element)',
+        color: 'var(--color-text-secondary)',
+        ':hover': {
+          backgroundColor: 'var(--color-background-muted)',
+          color: 'var(--color-text-primary)',
+        },
+      },
+      selected: {
+        backgroundColor: 'transparent',
+        color: 'var(--color-text-primary)',
+        fontWeight: 'var(--font-weight-medium)',
+        ':hover': {
+          backgroundColor: 'var(--color-background-muted)',
+          color: 'var(--color-text-primary)',
+        },
+        ':active': {
+          backgroundColor: 'transparent',
+        },
+        '::before': {
+          content: '""',
+          position: 'absolute',
+          insetBlock: '6px',
+          insetInlineStart: '0',
+          width: '1px',
+          backgroundColor: 'var(--color-accent)',
+        },
+      },
+    },
+    tab: {
+      base: {
+        borderRadius: 'var(--radius-element)',
+        color: 'var(--color-text-secondary)',
+        ':hover': {
+          color: 'var(--color-text-primary)',
+        },
+      },
+      selected: {
+        color: 'var(--color-text-primary)',
+        fontWeight: 'var(--font-weight-medium)',
+      },
+    },
+    'tab-indicator': {
+      base: {
+        height: '1px',
+        borderRadius: '0px',
+      },
+      selected: {
+        height: '1px',
+        borderRadius: '0px',
+        backgroundColor: 'var(--color-accent)',
+        opacity: '1',
+      },
+    },
     card: {
       base: {
         borderRadius: 'var(--radius-container)',
         boxShadow: 'none',
         borderWidth: '1px',
         borderStyle: 'solid',
+        borderColor: 'var(--color-border)',
       },
     },
     button: {
@@ -116,6 +209,26 @@ export const databridgeTheme = defineTheme({
     },
     badge: {
       base: { borderRadius: 'var(--radius-full)' },
+      'variant:neutral': {
+        backgroundColor: 'var(--color-background-muted)',
+        color: 'light-dark(#4b4c52, #bdbdc0)',
+      },
+      'variant:info': {
+        backgroundColor: 'var(--color-info-muted)',
+        color: 'var(--color-on-info-muted)',
+      },
+      'variant:success': {
+        backgroundColor: 'var(--color-success-muted)',
+        color: 'var(--color-on-success-muted)',
+      },
+      'variant:warning': {
+        backgroundColor: 'var(--color-warning-muted)',
+        color: 'var(--color-on-warning-muted)',
+      },
+      'variant:error': {
+        backgroundColor: 'var(--color-error-muted)',
+        color: 'var(--color-on-error-muted)',
+      },
     },
     table: {
       base: { fontVariantNumeric: 'tabular-nums' },

@@ -136,16 +136,16 @@ export const databridgeTheme = {
     "--color-on-error": "light-dark(#ffffff, #101013)",
     "--color-on-warning": "light-dark(#171719, #101013)",
     "--color-info": "light-dark(#3a6ea8, #4a8ad6)",
-    "--color-info-muted": "light-dark(#4a8ad61a, #4a8ad61f)",
+    "--color-info-muted": "light-dark(#e7f0fa, #1a2330)",
     "--color-on-info": "light-dark(#ffffff, #101013)",
-    "--color-text-info": "light-dark(#0067ce, #a1caff)",
-    "--color-text-success": "light-dark(#2f7d33, #90ca90)",
-    "--color-text-warning": "light-dark(#836700, #eec448)",
-    "--color-text-error": "light-dark(#c0262c, #ffaea7)",
-    "--color-on-info-muted": "light-dark(#003978, #a1caff)",
-    "--color-on-success-muted": "light-dark(#00490b, #90ca90)",
-    "--color-on-warning-muted": "light-dark(#4b3900, #eec448)",
-    "--color-on-error-muted": "light-dark(#76000c, #ffaea7)",
+    "--color-text-info": "light-dark(#285282, #7fb0ea)",
+    "--color-text-success": "light-dark(#1f5c47, #5fc39c)",
+    "--color-text-warning": "light-dark(#7a5712, #d9a441)",
+    "--color-text-error": "light-dark(#9e263c, #f0758b)",
+    "--color-on-info-muted": "light-dark(#285282, #7fb0ea)",
+    "--color-on-success-muted": "light-dark(#1f5c47, #5fc39c)",
+    "--color-on-warning-muted": "light-dark(#7a5712, #d9a441)",
+    "--color-on-error-muted": "light-dark(#9e263c, #f0758b)",
     "--color-icon-accent": "light-dark(#3a6ea8, #4a8ad6)",
     "--color-icon-primary": "light-dark(#171719, #ffffff)",
     "--color-icon-secondary": "light-dark(#5f6066, #8a8c92)",
@@ -153,9 +153,9 @@ export const databridgeTheme = {
     "--color-success": "light-dark(#2f7a61, #44a282)",
     "--color-warning": "light-dark(#a97c25, #d9a441)",
     "--color-error": "light-dark(#c43f57, #e5566f)",
-    "--color-success-muted": "light-dark(#44a2821a, #44a2821f)",
-    "--color-error-muted": "light-dark(#e5566f1a, #e5566f1f)",
-    "--color-warning-muted": "light-dark(#d9a4411a, #d9a4411f)",
+    "--color-success-muted": "light-dark(#e6f4ef, #1b2828)",
+    "--color-error-muted": "light-dark(#fbe9ec, #2c1a20)",
+    "--color-warning-muted": "light-dark(#fbf3df, #2a2416)",
     "--color-border": "light-dark(#e2e2e6, #222224)",
     "--color-border-emphasized": "light-dark(#c9c9cf, #3a3a3e)",
     "--color-skeleton": "light-dark(#e2e2e6, #2e2e31)",
@@ -203,8 +203,8 @@ export const databridgeTheme = {
     "--color-text-gray": "light-dark(#1b1b1b, #d4d4d4)",
     "--radius-none": "0px",
     "--radius-inner": "4px",
-    "--radius-element": "8px",
-    "--radius-container": "12px",
+    "--radius-element": "4px",
+    "--radius-container": "6px",
     "--radius-page": "28px",
     "--radius-full": "9999px",
     "--shadow-low": "light-dark(0 1px 2px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.4))",
@@ -359,8 +359,8 @@ export const databridgeTheme = {
     },
     "badge": {
       "variant:neutral": {
-        "backgroundColor": "var(--color-background-gray)",
-        "color": "var(--color-text-gray)"
+        "backgroundColor": "var(--color-background-muted)",
+        "color": "light-dark(#4b4c52, #bdbdc0)"
       },
       "variant:red": {
         "backgroundColor": "var(--color-background-red)",
@@ -404,6 +404,22 @@ export const databridgeTheme = {
       },
       "base": {
         "borderRadius": "var(--radius-full)"
+      },
+      "variant:info": {
+        "backgroundColor": "var(--color-info-muted)",
+        "color": "var(--color-on-info-muted)"
+      },
+      "variant:success": {
+        "backgroundColor": "var(--color-success-muted)",
+        "color": "var(--color-on-success-muted)"
+      },
+      "variant:warning": {
+        "backgroundColor": "var(--color-warning-muted)",
+        "color": "var(--color-on-warning-muted)"
+      },
+      "variant:error": {
+        "backgroundColor": "var(--color-error-muted)",
+        "color": "var(--color-on-error-muted)"
       }
     },
     "segmented-control": {
@@ -444,12 +460,93 @@ export const databridgeTheme = {
         "borderRadius": "var(--radius-container)",
         "boxShadow": "none",
         "borderWidth": "1px",
-        "borderStyle": "solid"
+        "borderStyle": "solid",
+        "borderColor": "var(--color-border)"
       }
     },
     "section": {
       "base": {
         "padding": "var(--spacing-3)"
+      }
+    },
+    "app-shell": {
+      "base": {
+        "backgroundColor": "var(--color-background-body)",
+        "color": "var(--color-text-primary)"
+      }
+    },
+    "app-shell-header": {
+      "base": {
+        "backgroundColor": "var(--color-background-surface)",
+        "borderBottom": "1px solid var(--color-border)"
+      }
+    },
+    "app-shell-sidenav": {
+      "base": {
+        "backgroundColor": "var(--color-background-surface)",
+        "borderInlineEnd": "1px solid var(--color-border)"
+      }
+    },
+    "side-nav": {
+      "base": {
+        "backgroundColor": "var(--color-background-surface)",
+        "color": "var(--color-text-secondary)"
+      }
+    },
+    "side-nav-item": {
+      "base": {
+        "position": "relative",
+        "borderRadius": "var(--radius-element)",
+        "color": "var(--color-text-secondary)",
+        ":hover": {
+          "backgroundColor": "var(--color-background-muted)",
+          "color": "var(--color-text-primary)"
+        }
+      },
+      "selected": {
+        "backgroundColor": "transparent",
+        "color": "var(--color-text-primary)",
+        "fontWeight": "var(--font-weight-medium)",
+        ":hover": {
+          "backgroundColor": "var(--color-background-muted)",
+          "color": "var(--color-text-primary)"
+        },
+        ":active": {
+          "backgroundColor": "transparent"
+        },
+        "::before": {
+          "content": "\"\"",
+          "position": "absolute",
+          "insetBlock": "6px",
+          "insetInlineStart": "0",
+          "width": "1px",
+          "backgroundColor": "var(--color-accent)"
+        }
+      }
+    },
+    "tab": {
+      "base": {
+        "borderRadius": "var(--radius-element)",
+        "color": "var(--color-text-secondary)",
+        ":hover": {
+          "color": "var(--color-text-primary)"
+        }
+      },
+      "selected": {
+        "color": "var(--color-text-primary)",
+        "fontWeight": "var(--font-weight-medium)"
+      }
+    },
+    "tab-indicator": {
+      "base": {
+        "height": "1px",
+        "borderRadius": "0px"
+      },
+      "selected": {
+        "height": "1px",
+        "borderRadius": "0px",
+        "backgroundColor": "var(--color-accent)",
+        "opacity": "1"
       }
     },
     "table": {

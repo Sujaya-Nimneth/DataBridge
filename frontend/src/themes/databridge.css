@@ -215,16 +215,16 @@
     --color-on-error: light-dark(#ffffff, #101013);
     --color-on-warning: light-dark(#171719, #101013);
     --color-info: light-dark(#3a6ea8, #4a8ad6);
-    --color-info-muted: light-dark(#4a8ad61a, #4a8ad61f);
+    --color-info-muted: light-dark(#e7f0fa, #1a2330);
     --color-on-info: light-dark(#ffffff, #101013);
-    --color-text-info: light-dark(#0067ce, #a1caff);
-    --color-text-success: light-dark(#2f7d33, #90ca90);
-    --color-text-warning: light-dark(#836700, #eec448);
-    --color-text-error: light-dark(#c0262c, #ffaea7);
-    --color-on-info-muted: light-dark(#003978, #a1caff);
-    --color-on-success-muted: light-dark(#00490b, #90ca90);
-    --color-on-warning-muted: light-dark(#4b3900, #eec448);
-    --color-on-error-muted: light-dark(#76000c, #ffaea7);
+    --color-text-info: light-dark(#285282, #7fb0ea);
+    --color-text-success: light-dark(#1f5c47, #5fc39c);
+    --color-text-warning: light-dark(#7a5712, #d9a441);
+    --color-text-error: light-dark(#9e263c, #f0758b);
+    --color-on-info-muted: light-dark(#285282, #7fb0ea);
+    --color-on-success-muted: light-dark(#1f5c47, #5fc39c);
+    --color-on-warning-muted: light-dark(#7a5712, #d9a441);
+    --color-on-error-muted: light-dark(#9e263c, #f0758b);
     --color-icon-accent: light-dark(#3a6ea8, #4a8ad6);
     --color-icon-primary: light-dark(#171719, #ffffff);
     --color-icon-secondary: light-dark(#5f6066, #8a8c92);
@@ -232,9 +232,9 @@
     --color-success: light-dark(#2f7a61, #44a282);
     --color-warning: light-dark(#a97c25, #d9a441);
     --color-error: light-dark(#c43f57, #e5566f);
-    --color-success-muted: light-dark(#44a2821a, #44a2821f);
-    --color-error-muted: light-dark(#e5566f1a, #e5566f1f);
-    --color-warning-muted: light-dark(#d9a4411a, #d9a4411f);
+    --color-success-muted: light-dark(#e6f4ef, #1b2828);
+    --color-error-muted: light-dark(#fbe9ec, #2c1a20);
+    --color-warning-muted: light-dark(#fbf3df, #2a2416);
     --color-border: light-dark(#e2e2e6, #222224);
     --color-border-emphasized: light-dark(#c9c9cf, #3a3a3e);
     --color-skeleton: light-dark(#e2e2e6, #2e2e31);
@@ -282,8 +282,8 @@
     --color-text-gray: light-dark(#1b1b1b, #d4d4d4);
     --radius-none: 0px;
     --radius-inner: 4px;
-    --radius-element: 8px;
-    --radius-container: 12px;
+    --radius-element: 4px;
+    --radius-container: 6px;
     --radius-page: 28px;
     --radius-full: 9999px;
     --shadow-low: light-dark(0 1px 2px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.4));
@@ -454,8 +454,8 @@
   }
 
   .astryx-badge[data-variant="neutral"] {
-    background-color: var(--color-background-gray);
-    color: var(--color-text-gray);
+    background-color: var(--color-background-muted);
+    color: light-dark(#4b4c52, #bdbdc0);
   }
 
   .astryx-badge[data-variant="red"] {
@@ -512,6 +512,26 @@
     border-radius: var(--radius-full);
   }
 
+  .astryx-badge[data-variant="info"] {
+    background-color: var(--color-info-muted);
+    color: var(--color-on-info-muted);
+  }
+
+  .astryx-badge[data-variant="success"] {
+    background-color: var(--color-success-muted);
+    color: var(--color-on-success-muted);
+  }
+
+  .astryx-badge[data-variant="warning"] {
+    background-color: var(--color-warning-muted);
+    color: var(--color-on-warning-muted);
+  }
+
+  .astryx-badge[data-variant="error"] {
+    background-color: var(--color-error-muted);
+    color: var(--color-on-error-muted);
+  }
+
   .astryx-segmented-control {
     padding: var(--spacing-1);
     --_segmented-control-padding: var(--spacing-1);
@@ -550,12 +570,102 @@
     box-shadow: none;
     border-width: 1px;
     border-style: solid;
+    border-color: var(--color-border);
     --astryx-card-padding: var(--spacing-3);
     --_card-radius: var(--radius-container);
   }
 
   .astryx-section {
     --astryx-section-padding: var(--spacing-3);
+  }
+
+  .astryx-app-shell {
+    background-color: var(--color-background-body);
+    color: var(--color-text-primary);
+  }
+
+  .astryx-app-shell-header {
+    background-color: var(--color-background-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .astryx-app-shell-sidenav {
+    background-color: var(--color-background-surface);
+    border-inline-end: 1px solid var(--color-border);
+  }
+
+  .astryx-side-nav {
+    background-color: var(--color-background-surface);
+    color: var(--color-text-secondary);
+  }
+
+  .astryx-side-nav-item {
+    position: relative;
+    border-radius: var(--radius-element);
+    color: var(--color-text-secondary);
+  }
+
+  .astryx-side-nav-item:hover:where(:not(:disabled,[aria-disabled="true"])) {
+    background-color: var(--color-background-muted);
+    color: var(--color-text-primary);
+  }
+
+  .astryx-side-nav-item[data-selected="selected"] {
+    background-color: transparent;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .astryx-side-nav-item[data-selected="selected"]:hover:where(:not(:disabled,[aria-disabled="true"])) {
+    background-color: var(--color-background-muted);
+    color: var(--color-text-primary);
+  }
+
+  @media not all and (pointer: coarse) {
+  .astryx-side-nav-item[data-selected="selected"]:active {
+    background-color: transparent;
+  }
+  }
+
+  @media (pointer: coarse) {
+  .astryx-side-nav-item[data-selected="selected"]:is([data-astryx-press="on"], [data-astryx-press="on"] :where(:not([data-astryx-pressable], [data-astryx-press="on"] [data-astryx-pressable] *)), :where(:not([data-astryx-pressable])):has([data-astryx-press="on"])) {
+    background-color: transparent;
+  }
+  }
+
+  .astryx-side-nav-item[data-selected="selected"]::before {
+    content: "";
+    position: absolute;
+    inset-block: 6px;
+    inset-inline-start: 0;
+    width: 1px;
+    background-color: var(--color-accent);
+  }
+
+  .astryx-tab {
+    border-radius: var(--radius-element);
+    color: var(--color-text-secondary);
+  }
+
+  .astryx-tab:hover:where(:not(:disabled,[aria-disabled="true"])) {
+    color: var(--color-text-primary);
+  }
+
+  .astryx-tab[data-selected="selected"] {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .astryx-tab-indicator {
+    height: 1px;
+    border-radius: 0px;
+  }
+
+  .astryx-tab-indicator[data-selected="selected"] {
+    height: 1px;
+    border-radius: 0px;
+    background-color: var(--color-accent);
+    opacity: 1;
   }
 
   .astryx-table {
