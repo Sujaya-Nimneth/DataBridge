@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Astryx core is one interconnected module graph: AppShell/SideNav reach
-    // most of it, so it lands as a single cacheable ~176KB-gzip chunk. Lazy
+    // Astryx core is one interconnected module graph: AppShell/SideNav/Table
+    // reach most of it, so it lands as one cacheable chunk (~267KB gzip). Lazy
     // routes keep our own code split; revisit if core adds finer entry points.
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         // Astryx core is large and shared by every route; splitting it out of
