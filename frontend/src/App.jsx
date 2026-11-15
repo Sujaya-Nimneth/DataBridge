@@ -4,11 +4,30 @@
  */
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  Link as RouterLinkComponent,
+} from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
+import { AppShell } from '@astryxdesign/core/AppShell';
+import { LinkProvider } from '@astryxdesign/core/Link';
 
 import Sidebar from './components/Sidebar';
+
+// Astryx link-rendering components pass `href` and `to={href}`. React Router's
+// Link takes `to`; forwarding only the accepted props keeps client-side routing
+// without leaking a redundant href onto the anchor.
+function RouterLink({ to, href, children, ...rest }) {
+  return (
+    <RouterLinkComponent to={to ?? href} {...rest}>
+      {children}
+    </RouterLinkComponent>
+  );
+}
 
 // Route-level splitting keeps the initial bundle small; each page is fetched
 // the first time the user navigates to it.
@@ -50,16 +69,12 @@ function ProtectedRoute({ children }) {
 }
 
 function AppLayout({ children }) {
+  // AppShell owns the skip link, the main landmark, the responsive mobile nav
+  // drawer and its focus trap/restore. Pages keep their own h1 inside children.
   return (
-    <div className="app-layout">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
-      <Sidebar />
-      <main className="main-content" id="main-content" tabIndex={-1}>
-        {children}
-      </main>
-    </div>
+    <AppShell contentPadding={0} height="auto" variant="surface" sideNav={<Sidebar />}>
+      {children}
+    </AppShell>
   );
 }
 
@@ -148,32 +163,34 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            ariaProps: { role: 'status', 'aria-live': 'polite' },
-            style: {
-              background: 'var(--raised)',
-              color: 'var(--text)',
-              border: '1px solid var(--control-border)',
-              borderRadius: 'var(--radius-control)',
-              fontSize: 'var(--fs-small)',
-              boxShadow: 'none',
-            },
-            success: {
-              iconTheme: { primary: 'var(--pill-positive-ink)', secondary: 'var(--surface)' },
-            },
-            error: {
-              iconTheme: { primary: 'var(--pill-negative-ink)', secondary: 'var(--surface)' },
-            },
-          }}
-        />
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <LinkProvider component={RouterLink}>
+      <AuthProvider>
+        <Router>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              ariaProps: { role: 'status', 'aria-live': 'polite' },
+              style: {
+                background: 'var(--raised)',
+                color: 'var(--text)',
+                border: '1px solid var(--control-border)',
+                borderRadius: 'var(--radius-control)',
+                fontSize: 'var(--fs-small)',
+                boxShadow: 'none',
+              },
+              success: {
+                iconTheme: { primary: 'var(--pill-positive-ink)', secondary: 'var(--surface)' },
+              },
+              error: {
+                iconTheme: { primary: 'var(--pill-negative-ink)', secondary: 'var(--surface)' },
+              },
+            }}
+          />
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
+    </LinkProvider>
   );
 }
 
