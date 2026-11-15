@@ -37,3 +37,11 @@ htmlcov/
 
 # Design-tool scratch (tasteskill inspection screenshots / dealt directions)
 .taste-skill/
+
+# Agent handoff / session notes — never commit or push these.
+# The active handoff lives in ~/.copilot/session-state/.../files/ (outside the repo),
+# but ignore any copy that lands here so `git add .` can never leak it.
+HANDOFF*.md
+handoff*.md
+*handoff*.md
+.redesign-handoff/
