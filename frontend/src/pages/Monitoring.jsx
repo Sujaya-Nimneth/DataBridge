@@ -3,14 +3,16 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Freshness, SkeletonBlock, SkeletonRows } from '../components/States';
+import { Freshness, SkeletonBlock, SkeletonRows, EmptyState } from '../components/States';
 import { TabList } from '../components/Tabs';
 import { StatusBadge } from '../components/StatusBadge';
 import { Badge } from '@astryxdesign/core/Badge';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
 import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
 
 const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
@@ -95,7 +97,7 @@ function Monitoring() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Monitoring</h1>
+          <Heading level={1}>Monitoring</Heading>
           <p>Platform health, metrics, and activity tracking</p>
         </div>
         <div className="page-header-actions">
@@ -105,11 +107,7 @@ function Monitoring() {
             loading={loading}
             stale={loadError}
           />
-          {isAdmin && (
-            <Link className="btn btn-secondary" to="/admin/users">
-              Users
-            </Link>
-          )}
+          {isAdmin && <Button label="Users" variant="secondary" href="/admin/users" />}
         </div>
       </div>
 
@@ -242,12 +240,7 @@ function Monitoring() {
               <h2 className="card-title">Connection health</h2>
             </div>
             {connStatuses.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <HiOutlineDatabase aria-hidden="true" />
-                </div>
-                <h3>No connections configured</h3>
-              </div>
+              <EmptyState icon={HiOutlineDatabase} title="No connections configured" />
             ) : (
               <div className="data-table-wrapper">
                 <table className="data-table">
@@ -288,12 +281,7 @@ function Monitoring() {
               <div className="card-subtitle">{activity.length} recent events</div>
             </div>
             {activity.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <HiOutlineClipboardList aria-hidden="true" />
-                </div>
-                <h3>No activity recorded</h3>
-              </div>
+              <EmptyState icon={HiOutlineClipboardList} title="No activity recorded" />
             ) : (
               <div className="data-table-wrapper">
                 <table className="data-table">
