@@ -1,0 +1,15 @@
+/*
+ * Canonical cascade-layer order for the DataBridge frontend.
+ *
+ * Imported first in main.jsx. Vite hoists CSS @import content above inline
+ * rules, so the order declaration must live in its own file that is imported
+ * before globals.css — see astryx docs migration/migration-setup.
+ *
+ * `legacy` holds the pre-Astryx index.css. It is placed BELOW astryx-base so
+ * its global element selectors (button { font: inherit }, :focus-visible, ...)
+ * can never override Astryx component styles. Legacy pages still render from
+ * their own class rules during the incremental migration, but any new Astryx
+ * component wins. The reset ships its own `@layer reset, ...` declaration;
+ * this one adds `legacy` and `app` ahead of it.
+ */
+@layer legacy, reset, astryx-base, astryx-theme, app;

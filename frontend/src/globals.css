@@ -1,0 +1,26 @@
+/*
+ * Global stylesheet for the Astryx migration.
+ *
+ * Order is significant (see layers.css, imported first in main.jsx):
+ *   1. Astryx reset           -> @layer reset
+ *   2. Astryx component base  -> @layer astryx-base
+ *   3. Built DataBridge theme -> @layer astryx-theme
+ *   4. Legacy app CSS         -> @layer legacy (lowest: cannot beat components)
+ *
+ * The plain-CSS path needs no StyleX compiler. Fonts are loaded in index.html.
+ */
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
+@import './themes/databridge.css';
+
+/* Legacy CSS is demoted to the lowest layer during the incremental migration.
+   Remove this import once every route is migrated and the visual gate passes. */
+@import './index.css' layer(legacy);
+
+@layer app {
+  /* The Theme wrapper supplies `color-scheme: dark` for native scrollbars and
+     form controls; keep the html element consistent for the un-migrated shell. */
+  :root {
+    color-scheme: dark;
+  }
+}
