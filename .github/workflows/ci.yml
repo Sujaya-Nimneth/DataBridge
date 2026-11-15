@@ -142,3 +142,32 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  frontend-theme:
+    name: Frontend theme & design system
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # @astryxdesign/cli requires Node >=22.13.0 while app runtime/Docker build stay tested on Node 20.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check built theme matches source
+        run: npm run theme:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Astryx built bundle check
+        run: npm run astryx -- doctor --built dist
