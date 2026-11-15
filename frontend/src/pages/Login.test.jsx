@@ -84,10 +84,13 @@ describe('Login page', () => {
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
-    // While in flight the label is replaced by a spinner, so query by id.
-    expect(document.getElementById('btn-login-submit')).toBeDisabled();
+    // Astryx Button keeps a busy control focusable via aria-disabled + aria-busy
+    // rather than the native disabled attribute, so query by id and assert ARIA.
+    const submit = document.getElementById('btn-login-submit');
+    expect(submit).toHaveAttribute('aria-disabled', 'true');
+    expect(submit).toHaveAttribute('aria-busy', 'true');
 
     resolveLogin({});
-    await waitFor(() => expect(document.getElementById('btn-login-submit')).toBeEnabled());
+    await waitFor(() => expect(submit).not.toHaveAttribute('aria-disabled'));
   });
 });
