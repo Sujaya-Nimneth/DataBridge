@@ -1,21 +1,26 @@
 /**
- * Reusable state primitives for app screens.
+ * Reusable state primitives for app screens, backed by Astryx.
  *
  * Follows design/DESIGN-SYSTEM.md "States": flat skeleton bars at real sizes,
  * freshness stamps with a real source, empty states that keep the frame, and
- * errors inside the failed block (not a full-screen banner).
+ * errors inside the failed block (not a full-screen banner). The wrapper keeps
+ * the app's existing named-export API so pages and tests keep working while
+ * their internals migrate to the component system.
  */
 
+import { Skeleton } from '@astryxdesign/core/Skeleton';
+import { EmptyState as AstryxEmptyState } from '@astryxdesign/core/EmptyState';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
 import { HiOutlineRefresh } from 'react-icons/hi';
 
+const FRESHNESS_TIME_FMT = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 export function SkeletonBlock({ width = '100%', height = 14, className = '' }) {
-  return (
-    <span
-      className={`skeleton ${className}`}
-      style={{ display: 'block', width, height }}
-      aria-hidden="true"
-    />
-  );
+  return <Skeleton className={className} width={width} height={height} radius={1} />;
 }
 
 export function SkeletonRows({ rows = 4 }) {
@@ -34,25 +39,22 @@ export function SkeletonRows({ rows = 4 }) {
  * polling cycle fails.
  */
 export function Freshness({ updatedAt, onRefresh, loading = false, stale = false }) {
-  const time = updatedAt
-    ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(updatedAt)
-    : null;
+  const time = updatedAt ? FRESHNESS_TIME_FMT.format(updatedAt) : null;
 
   return (
     <span className={`freshness ${stale ? 'freshness-stale' : ''}`} aria-live="polite">
       <span className="freshness-text">
         {stale ? 'Update failed · showing last good data' : time ? `Updated ${time}` : 'Not loaded'}
       </span>
-      <button
-        type="button"
-        className="btn btn-ghost btn-sm"
-        onClick={onRefresh}
-        disabled={loading}
+      <Button
+        label="Refresh"
+        variant="ghost"
+        size="sm"
         aria-label="Refresh data"
-      >
-        <HiOutlineRefresh aria-hidden="true" />
-        Refresh
-      </button>
+        onClick={onRefresh}
+        isLoading={loading}
+        icon={<HiOutlineRefresh aria-hidden="true" />}
+      />
     </span>
   );
 }
@@ -62,36 +64,37 @@ export function Freshness({ updatedAt, onRefresh, loading = false, stale = false
  */
 export function EmptyState({ icon: Icon, title, children, action }) {
   return (
-    <div className="empty-state">
-      {Icon && (
-        <div className="empty-state-icon">
-          <Icon aria-hidden="true" />
-        </div>
-      )}
-      <h3>{title}</h3>
-      <p>{children}</p>
-      {action}
-    </div>
+    <AstryxEmptyState
+      title={title}
+      description={typeof children === 'string' ? children : undefined}
+      icon={Icon ? <Icon /> : undefined}
+      actions={action}
+      headingLevel={3}
+    >
+      {typeof children !== 'string' ? children : null}
+    </AstryxEmptyState>
   );
 }
 
 /**
  * Inline error for the block that failed: what failed, when data was last
- * good, and a Retry.
+ * good, and a Retry. role="alert" makes the failure announce immediately.
  */
 export function InlineError({ message, onRetry, lastGood }) {
   return (
-    <div className="alert alert-danger" role="alert">
-      <span>
-        {message}
-        {lastGood ? ` Last updated ${lastGood}.` : ''}
-      </span>
-      {onRetry && (
-        <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry}>
-          Retry
-        </button>
-      )}
-    </div>
+    <Banner
+      status="error"
+      role="alert"
+      title={message}
+      description={lastGood ? `Last updated ${lastGood}.` : undefined}
+      collapsible={false}
+      container="card"
+      endContent={
+        onRetry ? (
+          <Button label="Retry" variant="secondary" size="sm" onClick={onRetry} />
+        ) : undefined
+      }
+    />
   );
 }
 

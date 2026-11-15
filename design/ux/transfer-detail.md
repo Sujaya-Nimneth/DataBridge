@@ -33,16 +33,16 @@
 
 Zones: `.page-container`; `.detail-head` (back link on the left, `Freshness` on the right, omitted while loading); `.page-header` (h1 "Transfer detail" + `.page-finding` on the left, `.page-header-actions` with status `.badge` and a conditional "Cancel transfer" on the right); a source→target summary `.card`; a Progress `.card`; an optional Error `.card`; an Execution logs `.card`; and a `.confirm-overlay` / `.confirm-dialog` for cancellation.
 
-| Zone / component | Real class names (`frontend/src/index.css`, `TransferDetail.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/TransferDetail.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.detail-head`, `.page-header`, `.page-header-actions`, `.page-finding`, `.mt-4`, `.mt-6` |
-| Navigation / freshness | `.btn`, `.btn-ghost`, `.btn-sm`, `.freshness`, `.freshness-stale`, `.freshness-text` |
-| Status | `.badge`, `.badge-dot`, `.badge-success` / `.badge-primary` / `.badge-danger` / `.badge-warning` / `.badge-neutral` |
+| Page frame / header | `.page-container`, `.detail-head`, `.page-header`, Astryx `<Heading level={1}>`, `.page-header-actions`, `.page-finding`, `.mt-4`, `.mt-6` |
+| Navigation / freshness | Astryx `<Button label="All transfers" variant="ghost" size="sm" href="/transfers" icon={<HiOutlineArrowLeft />} />`, `<Freshness>` (`States.jsx`) |
+| Status | `<StatusBadge>` (`components/StatusBadge.jsx` -> `@astryxdesign/core/Badge` with `variant` + `databridgeTheme` semantic tokens) |
 | Source→target summary | `.card`, `.transfer-summary-grid`, `.transfer-summary-arrow`, `.transfer-summary-extra`, `.field-label`, `.object-name`, `.font-mono`, `.text-sm`, `.text-muted` |
-| Progress | `.card-header`, `.card-title`, `.progress-figures`, `.stat-label`, `.row-total-value`, `.progress-bar`, `.progress-fill`, `.card-subtitle` |
+| Progress | `.card-header`, `.card-title`, `.progress-figures`, `.stat-label`, `.row-total-value`, Astryx `<ProgressBar variant="accent" />` (ARIA `role="progressbar"`), `.card-subtitle` |
 | Error / logs | `.form-error`, `.log-viewer`, `.log-entry`, `.log-time`, `.log-level` (+ `.info` / `.warning` / `.error`), `.log-message` |
-| Cancel confirm | `.confirm-overlay`, `.confirm-dialog`, `.flex`, `.gap-2`, `.justify-between`, `.btn-danger`, `.btn-secondary` |
-| Loading / not found | `.loading-overlay` (via `SkeletonBlock`), `.skeleton`, `.empty-state`, `.spinner` |
+| Cancel confirm | `<Modal maxWidth="440px">` (`@astryxdesign/core/Dialog` with focus trap & restore), `<Button variant="secondary" label="Keep running" />`, `<Button variant="destructive" label="Cancel transfer" />` |
+| Loading / not found | `<SkeletonBlock>` (`@astryxdesign/core/Skeleton`), `<EmptyState>` (`@astryxdesign/core/EmptyState`), `<Button variant="secondary" label="Retry" />` |
 
 The source→target pair is a two-column `.transfer-summary-grid` joined by a `HiOutlineArrowRight` — the design system's "spine" artefact echoed in the wizard and the log.
 

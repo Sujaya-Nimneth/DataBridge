@@ -33,15 +33,15 @@
 
 Zones: `.page-container`; `.page-header` (title + count subtitle on the left, `.page-header-actions` with "Add connection" on the right); either one `.card` holding the empty state or a `.connection-grid` of `.connection-card`s; up to two `Modal` overlays (create/edit form, delete confirmation).
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Connections.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Connections.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.page-header`, `.page-header-actions` |
+| Page frame / header | `.page-container`, `.page-header`, Astryx `<Heading level={1}>`, `.page-header-actions`, `<Button variant="primary">` |
 | Grid / card | `.connection-grid`, `.connection-card`, `.connection-card-inactive`, `.connection-card-header`, `.connection-name`, `.connection-host`, `.connection-type-icon` (+ `.postgresql` / `.mysql`) |
-| Status row | `.connection-status`, `.badge`, `.badge-dot`, `.badge-success`, `.badge-danger`, `.badge-neutral`, `.text-xs`, `.text-muted` |
-| Card actions | `.connection-actions`, `.btn`, `.btn-secondary`, `.btn-ghost`, `.btn-sm`, `.btn-danger-icon`, `.spinner` |
-| Empty state | `.card`, `.empty-state`, `.empty-state-icon`, `.btn-primary` |
-| Form modal | `.modal-overlay`, `.modal`, `.modal-header`, `.modal-body`, `.modal-footer`, `.modal-close`, `.form-group`, `.form-label`, `.form-input`, `.form-select`, `.form-row`, `.form-checkbox`, `.form-error`, `.form-hint`, `.alert`, `.alert-danger` |
-| Delete modal | `.modal`, `.modal-footer`, `.btn-danger`, `.btn-secondary`, `.font-semibold`, `.text-sm`, `.text-muted` |
+| Status row | `.connection-status`, `<StatusBadge>` (`@astryxdesign/core/Badge`), `.text-xs`, `.text-muted` |
+| Card actions | `.connection-actions`, Astryx `<Button>` (`variant="secondary" | "ghost" | "destructive"`, `size="sm"`, `icon`, `isLoading`, `ariaLabel`) |
+| Empty / error states | `.card`, `<EmptyState>` (`@astryxdesign/core/EmptyState`), `<InlineError>` (`@astryxdesign/core/Banner variant="critical"`) |
+| Form modal | `<Modal>` (`@astryxdesign/core/Dialog purpose="form"` + `DialogHeader` + `Layout`/`LayoutContent`/`LayoutFooter`), `.form-group`, `.form-label`, `.form-input`, `.form-select`, `.form-row`, `.form-checkbox`, `.form-error`, `.form-hint`, `.alert`, `.alert-danger` |
+| Delete modal | `<Modal maxWidth="440px">` (`@astryxdesign/core/Dialog`), `<Button variant="secondary">`, `<Button variant="destructive">`, `.font-semibold`, `.text-sm`, `.text-muted` |
 | Toasts / load | `.loading-overlay`, `.spinner`, `.spinner-lg`, `react-hot-toast` |
 
 ## States & Variants

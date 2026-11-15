@@ -4,11 +4,16 @@
 
 import { useState, useEffect } from 'react';
 import { connectionsAPI, discoveryAPI, transfersAPI } from '../api/client';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
 import Modal from '../components/Modal';
 import { TabList } from '../components/Tabs';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/States';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import {
   HiOutlinePlus,
   HiOutlinePlay,
@@ -18,7 +23,8 @@ import {
   HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
-const formatRows = (n) => (n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n));
+const NUMBER_FMT = new Intl.NumberFormat();
+const formatRows = (n) => (n === null || n === undefined ? '?' : NUMBER_FMT.format(n));
 
 function Transfers() {
   const [transfers, setTransfers] = useState([]);
@@ -236,17 +242,6 @@ function Transfers() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const map = {
-      completed: 'badge-success',
-      running: 'badge-primary',
-      failed: 'badge-danger',
-      pending: 'badge-warning',
-      cancelled: 'badge-neutral',
-    };
-    return map[status] || 'badge-neutral';
-  };
-
   const formatDuration = (start, end) => {
     if (!start) return '–';
     const s = new Date(start);
@@ -303,20 +298,20 @@ function Transfers() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Data transfers</h1>
+          <Heading level={1}>Data transfers</Heading>
           <p>Move data between configured database connections</p>
         </div>
         <div className="page-header-actions">
-          <button
-            className="btn btn-primary"
+          <Button
+            id="btn-new-transfer"
+            label="New transfer"
+            variant="primary"
+            icon={<HiOutlinePlus aria-hidden="true" />}
             onClick={() => {
               setShowWizard(true);
               setWizardStep(1);
             }}
-            id="btn-new-transfer"
-          >
-            <HiOutlinePlus aria-hidden="true" /> New transfer
-          </button>
+          />
         </div>
       </div>
 
@@ -336,26 +331,23 @@ function Transfers() {
         />
 
         {transfers.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <HiOutlineSwitchHorizontal aria-hidden="true" />
-            </div>
-            <h3>{statusFilter === 'all' ? 'No transfers yet' : `No ${statusFilter} transfers`}</h3>
-            <p>
-              {statusFilter === 'all'
-                ? 'Create your first data transfer to move data between databases.'
-                : 'Try another status, or clear the filter.'}
-            </p>
-            {statusFilter !== 'all' && (
-              <button
-                className="btn btn-secondary"
-                type="button"
-                onClick={() => setStatusFilter('all')}
-              >
-                Show all
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={HiOutlineSwitchHorizontal}
+            title={statusFilter === 'all' ? 'No transfers yet' : `No ${statusFilter} transfers`}
+            action={
+              statusFilter !== 'all' ? (
+                <Button
+                  label="Show all"
+                  variant="secondary"
+                  onClick={() => setStatusFilter('all')}
+                />
+              ) : undefined
+            }
+          >
+            {statusFilter === 'all'
+              ? 'Create your first data transfer to move data between databases.'
+              : 'Try another status, or clear the filter.'}
+          </EmptyState>
         ) : (
           <div className="data-table-wrapper">
             <table className="data-table">
@@ -372,9 +364,6 @@ function Transfers() {
               </thead>
               <tbody>
                 {transfers.map((tx) => {
-                  const progress = tx.total_rows
-                    ? Math.round((tx.transferred_rows / tx.total_rows) * 100)
-                    : 0;
                   return (
                     <tr key={tx.id}>
                       <td>
@@ -393,28 +382,18 @@ function Transfers() {
                         <div className="text-xs text-muted font-mono">{tx.target_table}</div>
                       </td>
                       <td>
-                        <span className={`badge ${getStatusBadge(tx.status)}`}>
-                          <span className="badge-dot"></span>
-                          {tx.status}
-                        </span>
+                        <StatusBadge status={tx.status} />
                       </td>
                       <td className="transfer-progress-cell">
                         {tx.status === 'running' ? (
                           <div>
-                            <div
-                              className="progress-bar progress-bar-spaced"
-                              role="progressbar"
-                              aria-label={`Progress of ${tx.source_table} transfer`}
-                              aria-valuenow={tx.transferred_rows ?? 0}
-                              aria-valuemin={0}
-                              aria-valuemax={tx.total_rows ?? 0}
-                              aria-valuetext={`${formatRows(tx.transferred_rows)} of ${formatRows(tx.total_rows)} rows`}
-                            >
-                              <div
-                                className="progress-fill animated"
-                                style={{ width: `${progress}%` }}
-                              ></div>
-                            </div>
+                            <ProgressBar
+                              label={`Progress of ${tx.source_table} transfer`}
+                              value={tx.transferred_rows ?? 0}
+                              max={tx.total_rows ?? 0}
+                              isLabelHidden
+                              variant="accent"
+                            />
                             <div className="text-xs text-muted">
                               {formatRows(tx.transferred_rows)} / {formatRows(tx.total_rows)} rows
                             </div>
@@ -430,23 +409,25 @@ function Transfers() {
                       </td>
                       <td>
                         <div className="flex gap-2">
-                          <Link
-                            className="btn btn-ghost btn-sm"
-                            to={`/transfers/${tx.id}`}
-                            title="View details"
-                            aria-label={`View details of ${tx.source_table} transfer`}
-                          >
-                            <HiOutlineEye aria-hidden="true" />
-                          </Link>
+                          <Button
+                            label={`View details of ${tx.source_table} transfer`}
+                            variant="ghost"
+                            size="sm"
+                            isIconOnly
+                            href={`/transfers/${tx.id}`}
+                            tooltip="View details"
+                            icon={<HiOutlineEye aria-hidden="true" />}
+                          />
                           {(tx.status === 'running' || tx.status === 'pending') && (
-                            <button
-                              className="btn btn-ghost btn-sm btn-danger-icon"
+                            <Button
+                              label={`Cancel transfer of ${tx.source_table}`}
+                              variant="ghost"
+                              size="sm"
+                              isIconOnly
                               onClick={() => setConfirmCancel(tx)}
-                              title="Cancel"
-                              aria-label={`Cancel transfer of ${tx.source_table}`}
-                            >
-                              <HiOutlineStop />
-                            </button>
+                              tooltip="Cancel"
+                              icon={<HiOutlineStop aria-hidden="true" />}
+                            />
                           )}
                         </div>
                       </td>
@@ -468,31 +449,29 @@ function Transfers() {
           footer={
             <>
               {wizardStep > 1 && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
+                <Button
+                  label="Back"
+                  variant="secondary"
                   onClick={() => setWizardStep((s) => s - 1)}
-                >
-                  Back
-                </button>
+                />
               )}
-              <div style={{ flex: 1 }}></div>
               {wizardStep < 4 ? (
-                <button
-                  type="button"
-                  className="btn btn-primary"
+                <Button
+                  label="Next"
+                  variant="primary"
                   onClick={() => {
                     if (
                       wizardStep === 1 &&
                       (!wizardForm.source_connection_id || !wizardForm.source_table)
                     ) {
-                      toast.error('Please select source connection and table');
+                      setWizardErrors(['Please select source connection and table.']);
                       return;
                     }
                     if (wizardStep === 2 && !wizardForm.target_connection_id) {
-                      toast.error('Please select target connection');
+                      setWizardErrors(['Please select target connection.']);
                       return;
                     }
+                    setWizardErrors([]);
                     if (wizardStep === 2 && !wizardForm.target_table) {
                       setWizardForm((prev) => ({ ...prev, target_table: prev.source_table }));
                     }
@@ -501,18 +480,15 @@ function Transfers() {
                     }
                     setWizardStep((s) => s + 1);
                   }}
-                >
-                  Next
-                </button>
+                />
               ) : (
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={handleCreateTransfer}
+                <Button
                   id="btn-start-transfer"
-                >
-                  <HiOutlinePlay /> Start Transfer
-                </button>
+                  label="Start Transfer"
+                  variant="primary"
+                  icon={<HiOutlinePlay aria-hidden="true" />}
+                  onClick={handleCreateTransfer}
+                />
               )}
             </>
           }
@@ -695,11 +671,14 @@ function Transfers() {
                   className="form-input"
                   value={wizardForm.target_table}
                   placeholder={wizardForm.source_table || 'Enter table name'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="wizard-target-table-hint"
                   onChange={(e) =>
                     setWizardForm((prev) => ({ ...prev, target_table: e.target.value }))
                   }
                 />
-                <div className="text-xs text-muted" style={{ marginTop: '4px' }}>
+                <div id="wizard-target-table-hint" className="form-hint">
                   Leave empty to use the same name as source. The table will be auto-created if it
                   doesn&apos;t exist.
                 </div>
@@ -777,6 +756,8 @@ function Transfers() {
                           className="form-input form-input-sm column-mapping-rename"
                           placeholder="same name"
                           aria-label={`Target name for ${col.name}`}
+                          autoComplete="off"
+                          spellCheck={false}
                           value={columnSelection.rename[col.name] || ''}
                           disabled={!columnSelection.include[col.name]}
                           onChange={(e) =>
@@ -860,21 +841,17 @@ function Transfers() {
           onClose={() => setConfirmCancel(null)}
           footer={
             <>
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
+                label="Keep running"
+                variant="secondary"
                 onClick={() => setConfirmCancel(null)}
-              >
-                Keep running
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => cancelTransfer(confirmCancel.id)}
+              />
+              <Button
                 id="btn-confirm-cancel"
-              >
-                Cancel transfer
-              </button>
+                label="Cancel transfer"
+                variant="destructive"
+                onClick={() => cancelTransfer(confirmCancel.id)}
+              />
             </>
           }
         >
@@ -896,16 +873,12 @@ function Transfers() {
           onClose={() => setConfirmDiscard(false)}
           footer={
             <>
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
+                label="Keep editing"
+                variant="secondary"
                 onClick={() => setConfirmDiscard(false)}
-              >
-                Keep editing
-              </button>
-              <button type="button" className="btn btn-danger" onClick={closeWizard}>
-                Discard
-              </button>
+              />
+              <Button label="Discard" variant="destructive" onClick={closeWizard} />
             </>
           }
         >

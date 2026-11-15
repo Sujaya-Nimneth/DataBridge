@@ -18,7 +18,7 @@ const tokenResponse = {
   data: {
     access_token: 'access-1',
     refresh_token: 'refresh-1',
-    user: { id: 'u1', email: 'user@example.com', full_name: 'User' },
+    user: { id: 'u1', email: 'operator@databridge.local', full_name: 'Operator' },
   },
 };
 
@@ -28,7 +28,7 @@ function Probe() {
     <div>
       <div data-testid="user">{user ? user.email : 'anonymous'}</div>
       <div data-testid="loading">{String(loading)}</div>
-      <button onClick={() => login('user@example.com', 'pw')}>login</button>
+      <button onClick={() => login('operator@databridge.local', 'pw')}>login</button>
       <button onClick={logout}>logout</button>
     </div>
   );
@@ -55,9 +55,9 @@ describe('AuthContext', () => {
 
   it('restores a persisted session from localStorage', () => {
     localStorage.setItem('access_token', 'token');
-    localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'saved@example.com' }));
+    localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'saved@databridge.local' }));
     renderProbe();
-    expect(screen.getByTestId('user').textContent).toBe('saved@example.com');
+    expect(screen.getByTestId('user').textContent).toBe('saved@databridge.local');
   });
 
   it('discards a corrupted persisted user', () => {
@@ -76,15 +76,15 @@ describe('AuthContext', () => {
       screen.getByText('login').click();
     });
 
-    expect(loginMock).toHaveBeenCalledWith({ email: 'user@example.com', password: 'pw' });
+    expect(loginMock).toHaveBeenCalledWith({ email: 'operator@databridge.local', password: 'pw' });
     expect(localStorage.getItem('access_token')).toBe('access-1');
     expect(localStorage.getItem('refresh_token')).toBe('refresh-1');
-    expect(screen.getByTestId('user').textContent).toBe('user@example.com');
+    expect(screen.getByTestId('user').textContent).toBe('operator@databridge.local');
   });
 
   it('logout revokes server-side and clears storage and user state', async () => {
     localStorage.setItem('access_token', 'access-1');
-    localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'user@example.com' }));
+    localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'operator@databridge.local' }));
     renderProbe();
 
     await act(async () => {

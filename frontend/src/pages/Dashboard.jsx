@@ -9,8 +9,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
 import { HiOutlineClipboardList, HiOutlineDatabase } from 'react-icons/hi';
-import { SkeletonBlock } from '../components/States';
-import { Freshness } from '../components/States';
+import { SkeletonBlock, Freshness, EmptyState, InlineError } from '../components/States';
+import { StatusBadge } from '../components/StatusBadge';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
 
 const statusBadge = (status) =>
   ({
@@ -23,6 +25,9 @@ const statusBadge = (status) =>
     unknown: 'badge-neutral',
   })[status] || 'badge-neutral';
 
+const NUMBER_FMT = new Intl.NumberFormat();
+const DATE_MEDIUM_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
 function formatTime(ts) {
   if (!ts) return '';
   const date = new Date(ts);
@@ -30,7 +35,7 @@ function formatTime(ts) {
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+  return DATE_MEDIUM_FMT.format(date);
 }
 
 function Kpi({ label, value, unit, to }) {
@@ -116,24 +121,20 @@ function Dashboard() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Dashboard</h1>
+          <Heading level={1}>Dashboard</Heading>
           {!loading && !loadError && <Finding stats={stats} />}
         </div>
         <div className="page-header-actions">
           <Freshness updatedAt={updatedAt} onRefresh={loadDashboard} loading={loading} />
-          <Link className="btn btn-primary" to="/transfers?new=1">
-            New transfer
-          </Link>
+          <Button label="New transfer" variant="primary" href="/transfers?new=1" />
         </div>
       </div>
 
       {loadError && (
-        <div className="alert alert-danger" role="alert">
-          <span>{loadError} Data below may be out of date.</span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={loadDashboard}>
-            Retry
-          </button>
-        </div>
+        <InlineError
+          message={`${loadError} Data below may be out of date.`}
+          onRetry={loadDashboard}
+        />
       )}
 
       {loading ? (
@@ -169,9 +170,7 @@ function Dashboard() {
               </h2>
               <div className="card-subtitle">Latest 5 transfer operations</div>
             </div>
-            <Link className="btn btn-ghost btn-sm" to="/transfers">
-              View all
-            </Link>
+            <Button label="View all" variant="ghost" size="sm" href="/transfers" />
           </div>
           {loading ? (
             <div className="activity-feed" aria-hidden="true">
@@ -182,16 +181,13 @@ function Dashboard() {
               ))}
             </div>
           ) : activity.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <HiOutlineClipboardList aria-hidden="true" />
-              </div>
-              <h3>No transfers yet</h3>
-              <p>Create a connection, then move your first table.</p>
-              <Link className="btn btn-primary" to="/connections">
-                Add a connection
-              </Link>
-            </div>
+            <EmptyState
+              icon={HiOutlineClipboardList}
+              title="No transfers yet"
+              action={<Button label="Add a connection" variant="primary" href="/connections" />}
+            >
+              Create a connection, then move your first table.
+            </EmptyState>
           ) : (
             <div className="activity-feed">
               {activity.map((item) => (
@@ -200,10 +196,7 @@ function Dashboard() {
                   <div className="activity-content">
                     <div className="activity-description">{item.description}</div>
                     <div className="activity-meta">
-                      <span className={`badge ${statusBadge(item.status)}`}>
-                        <span className="badge-dot" aria-hidden="true" />
-                        {item.status}
-                      </span>
+                      <StatusBadge status={item.status} />
                       <time className="activity-time" dateTime={item.timestamp}>
                         {formatTime(item.timestamp)}
                       </time>
@@ -223,9 +216,7 @@ function Dashboard() {
               </h2>
               <div className="card-subtitle">Most recent test per database</div>
             </div>
-            <Link className="btn btn-ghost btn-sm" to="/connections">
-              View all
-            </Link>
+            <Button label="View all" variant="ghost" size="sm" href="/connections" />
           </div>
           {loading ? (
             <div aria-hidden="true">
@@ -234,16 +225,13 @@ function Dashboard() {
               ))}
             </div>
           ) : connStatuses.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <HiOutlineDatabase aria-hidden="true" />
-              </div>
-              <h3>No connections yet</h3>
-              <p>Add a PostgreSQL or MySQL database to get started.</p>
-              <Link className="btn btn-primary" to="/connections">
-                Add a connection
-              </Link>
-            </div>
+            <EmptyState
+              icon={HiOutlineDatabase}
+              title="No connections yet"
+              action={<Button label="Add a connection" variant="primary" href="/connections" />}
+            >
+              Add a PostgreSQL or MySQL database to get started.
+            </EmptyState>
           ) : (
             <ul className="object-list">
               {connStatuses.map((conn) => (
@@ -252,10 +240,7 @@ function Dashboard() {
                     {conn.db_type === 'postgresql' ? 'PG' : 'MY'}
                   </span>
                   <span className="object-name truncate">{conn.name}</span>
-                  <span className={`badge ${statusBadge(conn.status)}`}>
-                    <span className="badge-dot" aria-hidden="true" />
-                    {conn.status}
-                  </span>
+                  <StatusBadge status={conn.status} />
                 </li>
               ))}
             </ul>
@@ -268,7 +253,7 @@ function Dashboard() {
           <div className="row-total">
             <span className="stat-label">Total rows transferred</span>
             <span className="row-total-value">
-              {new Intl.NumberFormat().format(stats.total_rows_transferred)}
+              {NUMBER_FMT.format(stats.total_rows_transferred)}
             </span>
             <span className="card-subtitle">Across {stats.total_transfers ?? 0} transfers</span>
           </div>

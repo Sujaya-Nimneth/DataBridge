@@ -33,16 +33,16 @@
 
 Zones: `.page-container`; `.page-header` (h1 "Monitoring", subtitle "Platform health, metrics, and activity tracking", `.page-header-actions` with `Freshness` + admin-only "Users"); `.tabs` (Overview / Connections / Activity log); then one of three tab bodies.
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Monitoring.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Monitoring.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.page-header`, `.page-header-actions` |
-| Freshness / users | `.freshness`, `.freshness-stale`, `.freshness-text`, `.btn-secondary` |
-| Tabs | `.tabs`, `.tab`, `.tab.active` (1px `::after` accent line), `role="tablist"` |
+| Page frame / header | `.page-container`, `.page-header`, Astryx `<Heading level={1}>`, `.page-header-actions` |
+| Freshness / users | `<Freshness>` (`States.jsx`), Astryx `<Button label="Users" variant="secondary" href="/admin/users" />` |
+| Tabs | `TabList` (`components/Tabs.jsx` -> Astryx `<TabList>` / `<Tab>` + 1px `--accent` `tab-indicator`, `role="tablist"`) |
 | Overview KPIs | `.stats-grid`, `.stats-grid-4`, `.stat-card`, `.stat-label`, `.stat-value`, `.stat-unit` |
-| Status distribution | `.grid-2`, `.card`, `.card-header`, `.card-title`, `.card-subtitle`, `.distribution-list`, `.distribution-row`, `.distribution-label`, `.distribution-bar`, `.distribution-fill`, `.distribution-value`, `.badge`, `.badge-dot` |
-| Daily chart | `.bar-chart`, `.bar-chart-column`, `.bar-chart-value`, `.bar-chart-track`, `.bar-chart-bar`, `.text-xs`, `.text-muted` |
-| Connections / Activity tables | `.data-table-wrapper`, `.data-table`, `.badge-primary`, `.badge-info`, `.truncate` |
-| Empty / loading | `.empty-state`, `.empty-state-icon`, `.skeleton` (`SkeletonBlock`, `SkeletonRows`), `.spinner` |
+| Status distribution | `.grid-2`, `.card`, `.card-header`, `.card-title`, `.card-subtitle`, `.distribution-list`, `.distribution-row`, `.distribution-label`, `.distribution-bar`, `.distribution-fill`, `.distribution-value`, `<StatusBadge>` (`@astryxdesign/core/Badge`) |
+| Daily chart | `.bar-chart`, `.bar-chart-column`, `.bar-chart-value`, `.bar-chart-track`, `.bar-chart-bar` (`--chart-1: var(--accent)`), `.text-xs`, `.text-muted` |
+| Connections / Activity tables | `.data-table-wrapper`, `.data-table`, Astryx `<Badge variant="info" label={conn.db_type} />`, `<StatusBadge>`, `.truncate` |
+| Empty / loading | `<EmptyState>` (`@astryxdesign/core/EmptyState`), `<SkeletonBlock>`, `<SkeletonRows rows={5} />` (`@astryxdesign/core/Skeleton`) |
 
 Overview is a `.grid-2` of two cards: "Transfer status" (distribution bars, "Last 7 days") and "Transfers per day" (bar chart, "Last 7 days · peak N").
 

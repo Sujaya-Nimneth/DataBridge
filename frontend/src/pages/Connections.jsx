@@ -5,6 +5,10 @@
 import { useState, useEffect } from 'react';
 import { connectionsAPI } from '../api/client';
 import Modal from '../components/Modal';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState, InlineError } from '../components/States';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
 import toast from 'react-hot-toast';
 import {
   HiOutlinePlus,
@@ -13,6 +17,11 @@ import {
   HiOutlineStatusOnline,
   HiOutlineDatabase,
 } from 'react-icons/hi';
+
+const TESTED_DATE_FMT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 function Connections() {
   const [connections, setConnections] = useState([]);
@@ -159,11 +168,6 @@ function Connections() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const map = { success: 'badge-success', failed: 'badge-danger', unknown: 'badge-neutral' };
-    return map[status] || 'badge-neutral';
-  };
-
   if (loading) {
     return (
       <div className="page-container">
@@ -179,30 +183,38 @@ function Connections() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Connections</h1>
+          <Heading level={1}>Connections</Heading>
           <p>
             {connections.length} database{connections.length === 1 ? '' : 's'} configured
           </p>
         </div>
         <div className="page-header-actions">
-          <button className="btn btn-primary" onClick={openCreate} id="btn-add-connection">
-            <HiOutlinePlus aria-hidden="true" /> Add connection
-          </button>
+          <Button
+            id="btn-add-connection"
+            label="Add connection"
+            variant="primary"
+            onClick={openCreate}
+            icon={<HiOutlinePlus aria-hidden="true" />}
+          />
         </div>
       </div>
 
       {connections.length === 0 ? (
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <HiOutlineDatabase aria-hidden="true" />
-            </div>
-            <h3>No connections yet</h3>
-            <p>Add a PostgreSQL or MySQL database to start exploring and moving data.</p>
-            <button className="btn btn-primary" onClick={openCreate}>
-              <HiOutlinePlus aria-hidden="true" /> Add connection
-            </button>
-          </div>
+          <EmptyState
+            icon={HiOutlineDatabase}
+            title="No connections yet"
+            action={
+              <Button
+                label="Add connection"
+                variant="primary"
+                onClick={openCreate}
+                icon={<HiOutlinePlus aria-hidden="true" />}
+              />
+            }
+          >
+            Add a PostgreSQL or MySQL database to start exploring and moving data.
+          </EmptyState>
         </div>
       ) : (
         <div className="connection-grid">
@@ -224,57 +236,48 @@ function Connections() {
               </div>
 
               <div className="connection-status">
-                <span className={`badge ${getStatusBadge(conn.last_test_status)}`}>
-                  <span className="badge-dot"></span>
-                  {conn.last_test_status}
-                </span>
-                {!conn.is_active && <span className="badge badge-neutral">inactive</span>}
+                <StatusBadge status={conn.last_test_status} />
+                {!conn.is_active && <StatusBadge status="inactive" label="inactive" />}
                 {conn.last_tested_at && (
                   <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
-                    Tested{' '}
-                    {new Intl.DateTimeFormat(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(conn.last_tested_at))}
+                    Tested {TESTED_DATE_FMT.format(new Date(conn.last_tested_at))}
                   </span>
                 )}
               </div>
 
               <div className="connection-actions">
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleTest(conn.id)}
-                  disabled={testing === conn.id}
+                <Button
                   id={`btn-test-${conn.id}`}
-                >
-                  {testing === conn.id ? (
-                    <span
-                      className="spinner"
-                      style={{ width: '14px', height: '14px' }}
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <HiOutlineStatusOnline aria-hidden="true" />
-                  )}
-                  Test
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(conn)}>
-                  <HiOutlinePencil aria-hidden="true" /> Edit
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
+                  label="Test"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleTest(conn.id)}
+                  isLoading={testing === conn.id}
+                  icon={<HiOutlineStatusOnline aria-hidden="true" />}
+                />
+                <Button
+                  label="Edit"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openEdit(conn)}
+                  icon={<HiOutlinePencil aria-hidden="true" />}
+                />
+                <Button
+                  label={conn.is_active ? 'Deactivate' : 'Activate'}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleToggleActive(conn)}
-                  title={conn.is_active ? 'Deactivate connection' : 'Activate connection'}
-                >
-                  {conn.is_active ? 'Deactivate' : 'Activate'}
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm btn-danger-icon"
-                  onClick={() => setConfirmDelete(conn)}
+                  tooltip={conn.is_active ? 'Deactivate connection' : 'Activate connection'}
+                />
+                <Button
+                  label={`Delete connection ${conn.name}`}
                   aria-label={`Delete connection ${conn.name}`}
-                >
-                  <HiOutlineTrash />
-                </button>
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  onClick={() => setConfirmDelete(conn)}
+                  icon={<HiOutlineTrash aria-hidden="true" />}
+                />
               </div>
             </div>
           ))}
@@ -286,13 +289,21 @@ function Connections() {
         <Modal
           title={editConn ? 'Edit Connection' : 'New Connection'}
           onClose={() => setShowModal(false)}
+          footer={
+            <>
+              <Button label="Cancel" variant="secondary" onClick={() => setShowModal(false)} />
+              <Button
+                id="btn-save-connection"
+                label={editConn ? 'Save changes' : 'Add connection'}
+                variant="primary"
+                type="submit"
+                form="connection-form"
+              />
+            </>
+          }
         >
-          <form onSubmit={handleSubmit} noValidate>
-            {formErrors._form && (
-              <div className="alert alert-danger" role="alert">
-                <span>{formErrors._form}</span>
-              </div>
-            )}
+          <form id="connection-form" onSubmit={handleSubmit} noValidate>
+            {formErrors._form && <InlineError message={formErrors._form} />}
             <div className="form-group">
               <label className="form-label" htmlFor="input-conn-name">
                 Connection name
@@ -302,6 +313,8 @@ function Connections() {
                 className="form-input"
                 value={form.name}
                 placeholder="Production database…"
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 aria-invalid={formErrors.name ? 'true' : undefined}
                 aria-describedby={formErrors.name ? 'err-conn-name' : undefined}
@@ -344,6 +357,8 @@ function Connections() {
                   className="form-input"
                   value={form.host}
                   placeholder="localhost…"
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => setForm({ ...form, host: e.target.value })}
                   aria-invalid={formErrors.host ? 'true' : undefined}
                   aria-describedby={formErrors.host ? 'err-conn-host' : undefined}
@@ -397,6 +412,8 @@ function Connections() {
                 className="form-input"
                 value={form.database_name}
                 placeholder="mydb"
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(e) => setForm({ ...form, database_name: e.target.value })}
                 required
               />
@@ -411,6 +428,8 @@ function Connections() {
                   className="form-input"
                   value={form.username}
                   placeholder="postgres"
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
                   required
                 />
@@ -443,18 +462,6 @@ function Connections() {
               />
               <span className="text-sm">Enable SSL</span>
             </label>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" id="btn-save-connection">
-                {editConn ? 'Save changes' : 'Add connection'}
-              </button>
-            </div>
           </form>
         </Modal>
       )}
@@ -466,21 +473,17 @@ function Connections() {
           onClose={() => setConfirmDelete(null)}
           footer={
             <>
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
+                label="Keep connection"
+                variant="secondary"
                 onClick={() => setConfirmDelete(null)}
-              >
-                Keep connection
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => handleDelete(confirmDelete.id)}
+              />
+              <Button
                 id="btn-confirm-delete"
-              >
-                Delete connection
-              </button>
+                label="Delete connection"
+                variant="destructive"
+                onClick={() => handleDelete(confirmDelete.id)}
+              />
             </>
           }
         >

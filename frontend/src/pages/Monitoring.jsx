@@ -3,15 +3,27 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { monitoringAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Freshness, SkeletonBlock, SkeletonRows } from '../components/States';
+import { Freshness, SkeletonBlock, SkeletonRows, EmptyState } from '../components/States';
 import { TabList } from '../components/Tabs';
+import { StatusBadge } from '../components/StatusBadge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
 import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
 
-const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
+const NUMBER_FMT = new Intl.NumberFormat();
+const DATE_TIME_FMT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+const WEEKDAY_FMT = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const DATE_MEDIUM_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
+const number = (n) => (n === null || n === undefined ? '–' : NUMBER_FMT.format(n));
 
 function Monitoring() {
   const [stats, setStats] = useState(null);
@@ -56,25 +68,9 @@ function Monitoring() {
     loadAll();
   }, [loadAll]);
 
-  const getStatusBadge = (status) => {
-    const map = {
-      completed: 'badge-success',
-      running: 'badge-primary',
-      failed: 'badge-danger',
-      pending: 'badge-warning',
-      cancelled: 'badge-neutral',
-      success: 'badge-success',
-      unknown: 'badge-neutral',
-    };
-    return map[status] || 'badge-neutral';
-  };
-
   const formatTime = (ts) => {
     if (!ts) return '–';
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(ts));
+    return DATE_TIME_FMT.format(new Date(ts));
   };
 
   if (loading) {
@@ -106,7 +102,7 @@ function Monitoring() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Monitoring</h1>
+          <Heading level={1}>Monitoring</Heading>
           <p>Platform health, metrics, and activity tracking</p>
         </div>
         <div className="page-header-actions">
@@ -116,11 +112,7 @@ function Monitoring() {
             loading={loading}
             stale={loadError}
           />
-          {isAdmin && (
-            <Link className="btn btn-secondary" to="/admin/users">
-              Users
-            </Link>
-          )}
+          {isAdmin && <Button label="Users" variant="secondary" href="/admin/users" />}
         </div>
       </div>
 
@@ -185,10 +177,7 @@ function Monitoring() {
                       return (
                         <div className="distribution-row" key={status}>
                           <span className="distribution-label">
-                            <span className={`badge ${getStatusBadge(status)}`}>
-                              <span className="badge-dot" aria-hidden="true" />
-                              {status}
-                            </span>
+                            <StatusBadge status={status} />
                           </span>
                           <span className="distribution-bar">
                             <span className="distribution-fill" style={{ width: `${pct}%` }} />
@@ -221,12 +210,8 @@ function Monitoring() {
                     const heightPct =
                       maxDailyCount > 0 ? Math.max((day.count / maxDailyCount) * 100, 3) : 3;
                     const date = new Date(day.date);
-                    const label = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
-                      date,
-                    );
-                    const full = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-                      date,
-                    );
+                    const label = WEEKDAY_FMT.format(date);
+                    const full = DATE_MEDIUM_FMT.format(date);
                     return (
                       <div key={day.date} className="bar-chart-column">
                         <span className="bar-chart-value">{day.count}</span>
@@ -256,12 +241,7 @@ function Monitoring() {
               <h2 className="card-title">Connection health</h2>
             </div>
             {connStatuses.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <HiOutlineDatabase aria-hidden="true" />
-                </div>
-                <h3>No connections configured</h3>
-              </div>
+              <EmptyState icon={HiOutlineDatabase} title="No connections configured" />
             ) : (
               <div className="data-table-wrapper">
                 <table className="data-table">
@@ -279,17 +259,10 @@ function Monitoring() {
                       <tr key={conn.id}>
                         <td style={{ fontWeight: 600 }}>{conn.name}</td>
                         <td>
-                          <span
-                            className={`badge ${conn.db_type === 'postgresql' ? 'badge-primary' : 'badge-info'}`}
-                          >
-                            {conn.db_type}
-                          </span>
+                          <Badge variant="info" label={conn.db_type} />
                         </td>
                         <td>
-                          <span className={`badge ${getStatusBadge(conn.status)}`}>
-                            <span className="badge-dot"></span>
-                            {conn.status}
-                          </span>
+                          <StatusBadge status={conn.status} />
                         </td>
                         <td className="text-sm text-muted">{formatTime(conn.last_tested_at)}</td>
                         <td className="text-sm text-muted truncate">{conn.message || '–'}</td>
@@ -309,12 +282,7 @@ function Monitoring() {
               <div className="card-subtitle">{activity.length} recent events</div>
             </div>
             {activity.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <HiOutlineClipboardList aria-hidden="true" />
-                </div>
-                <h3>No activity recorded</h3>
-              </div>
+              <EmptyState icon={HiOutlineClipboardList} title="No activity recorded" />
             ) : (
               <div className="data-table-wrapper">
                 <table className="data-table">
@@ -331,10 +299,7 @@ function Monitoring() {
                       <tr key={item.id}>
                         <td>{item.description}</td>
                         <td>
-                          <span className={`badge ${getStatusBadge(item.status)}`}>
-                            <span className="badge-dot"></span>
-                            {item.status}
-                          </span>
+                          <StatusBadge status={item.status} />
                         </td>
                         <td className="text-sm">{number(item.rows)}</td>
                         <td className="text-sm text-muted">{formatTime(item.timestamp)}</td>

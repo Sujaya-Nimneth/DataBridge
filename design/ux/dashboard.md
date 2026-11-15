@@ -33,18 +33,18 @@
 
 Zones: a single `.page-container`; `.page-header` (title + finding on the left, `.page-header-actions` with `Freshness` + "New transfer" on the right); an optional full-width error `.alert`; a 6-cell `.stats-grid`; a `.grid-2` row of two cards ("Recent activity", "Connection health"); a conditional `.card.mt-6` "Total rows transferred".
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Dashboard.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Dashboard.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame, header, actions | `.page-container`, `.page-header`, `.page-header-actions`, `.page-finding`, `.finding-mark` |
+| Page frame, header, actions | `.page-container`, `.page-header`, Astryx `<Heading level={1}>`, `.page-header-actions`, `<Button label="New transfer" variant="primary" href="/transfers?new=1" />`, `.page-finding`, `.finding-mark` |
 | KPI container / cells | `.stats-grid`, `.stat-card`, `.stat-card-action`, `.stat-label`, `.stat-value`, `.stat-unit` |
 | Cards | `.card`, `.card-header`, `.card-title`, `.card-subtitle`, `.grid-2`, `.mt-6` |
-| Recent activity | `.activity-feed`, `.activity-item`, `.activity-dot`, `.activity-content`, `.activity-description`, `.activity-meta`, `.activity-time` |
-| Connection health | `.object-list`, `.object-row`, `.object-kind`, `.object-name`, `.truncate`, `.badge` |
+| Recent activity | `.activity-feed`, `.activity-item`, `.activity-dot`, `.activity-content`, `.activity-description`, `.activity-meta`, `<StatusBadge>` (`@astryxdesign/core/Badge`), `.activity-time`, `<Button variant="ghost" size="sm" href="/transfers" />` |
+| Connection health | `.object-list`, `.object-row`, `.object-kind`, `.object-name`, `.truncate`, `<StatusBadge>` (`@astryxdesign/core/Badge`), `<Button variant="ghost" size="sm" href="/connections" />` |
 | Rows total | `.row-total`, `.row-total-value` |
-| Freshness / states / skeleton | `.freshness`, `.skeleton` (`SkeletonBlock`), `.empty-state`, `.empty-state-icon`, `.alert`, `.alert-danger` |
-| Buttons / links | `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-sm`, `.btn-ghost`, `.badge-*` (success/primary/danger/warning/neutral) |
+| Freshness / states / skeleton | `<Freshness>` (`States.jsx` + `<Button variant="ghost" size="sm">`), `<SkeletonBlock>` (`@astryxdesign/core/Skeleton`), `<EmptyState>` (`@astryxdesign/core/EmptyState`), `<InlineError>` (`@astryxdesign/core/Banner variant="critical"` + `<Button variant="secondary" size="sm">`) |
+| Navigation actions | Astryx `<Button>` (`variant="primary" | "secondary" | "ghost"`, `size="sm"`, `href`) |
 
-Status text maps through the local `statusBadge()` helper to `.badge-*` classes.
+Status text maps through `<StatusBadge>` / `statusBadge()` into Astryx `<Badge variant="positive | info | warning | negative | neutral" />` (`databridgeTheme` muted pill tokens).
 
 ## States & Variants
 

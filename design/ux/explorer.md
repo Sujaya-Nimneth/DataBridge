@@ -33,15 +33,15 @@
 
 Zones: `.page-container`; `.page-header` (h1 "Data Explorer", subtitle "Browse database structures and preview data"); either a full-width state card (load failure / no connections) or the `.explorer-layout` two-column grid: `.explorer-sidebar` (tree) + `.explorer-main` (selection card with `.tabs` and a `.data-table-wrapper`).
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Explorer.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Explorer.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.page-header` |
+| Page frame / header | `.page-container`, `.page-header`, Astryx `<Heading level={1}>` |
 | Two-column layout | `.explorer-layout`, `.explorer-sidebar`, `.explorer-main` |
 | Tree | `.tree-view`, `.tree-node`, `.tree-node-button`, `.tree-node-icon`, `.tree-node-label`, `.tree-children`, `.selected`, `.section-label` |
-| Selection card | `.card`, `.card-header`, `.card-title`, `.card-subtitle`, `.btn-primary`, `.btn-sm` |
-| Tabs | `.tabs`, `.tab`, `.tab.active` (1px `::after` accent line) |
+| Selection card | `.card`, `.card-header`, `.card-title`, `.card-subtitle`, Astryx `<Button variant="primary" size="sm">` |
+| Tabs | `TabList` (`components/Tabs.jsx` -> Astryx `<TabList>` / `<Tab>` + 1px `--accent` `tab-indicator` override) |
 | Tables | `.data-table-wrapper`, `.data-table`, `.font-mono`, `.badge`, `.badge-warning`, `.badge-info`, `.text-muted`, `.text-sm`, `.text-xs` |
-| Empty / error / loading | `.empty-state`, `.empty-state-icon`, `.loading-overlay`, `.spinner`, `.spinner-lg`, `.card` |
+| Empty / error / loading | `<EmptyState>` (`@astryxdesign/core/EmptyState`, `action={<Button>}`), `.loading-overlay`, `.spinner`, `.spinner-lg`, `.card` |
 
 Tree levels: connection (`conn-${id}`) → schema (`schema-${id}-${name}`, shows `table_count`) → table (icon `HiOutlineTable` or `HiOutlineEye` for a view). `treeData` is keyed `schemas-${connId}` and `tables-${connId}-${schema}`.
 

@@ -6,6 +6,9 @@ import { useState, useEffect, useRef } from 'react';
 import { connectionsAPI, discoveryAPI } from '../api/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TabList } from '../components/Tabs';
+import { EmptyState } from '../components/States';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
 import toast from 'react-hot-toast';
 import {
   HiOutlineChevronRight,
@@ -16,6 +19,8 @@ import {
   HiOutlineEye,
   HiOutlineSearch,
 } from 'react-icons/hi';
+
+const NUMBER_FMT = new Intl.NumberFormat();
 
 function Explorer() {
   const [connections, setConnections] = useState([]);
@@ -187,35 +192,29 @@ function Explorer() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Data Explorer</h1>
+        <Heading level={1}>Data Explorer</Heading>
         <p>Browse database structures and preview data</p>
       </div>
 
       {loadFailed ? (
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <HiOutlineDatabase aria-hidden="true" />
-            </div>
-            <h3>Could not load connections</h3>
-            <p>The server did not respond. Check that the API is running.</p>
-            <button className="btn btn-primary" onClick={loadConnections}>
-              Retry
-            </button>
-          </div>
+          <EmptyState
+            icon={HiOutlineDatabase}
+            title="Could not load connections"
+            action={<Button label="Retry" variant="primary" onClick={loadConnections} />}
+          >
+            The server did not respond. Check that the API is running.
+          </EmptyState>
         </div>
       ) : connections.length === 0 ? (
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <HiOutlineSearch aria-hidden="true" />
-            </div>
-            <h3>No connections available</h3>
-            <p>Add a database connection first to start exploring data.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/connections')}>
-              Add a connection
-            </button>
-          </div>
+          <EmptyState
+            icon={HiOutlineSearch}
+            title="No connections available"
+            action={<Button label="Add a connection" variant="primary" href="/connections" />}
+          >
+            Add a database connection first to start exploring data.
+          </EmptyState>
         </div>
       ) : (
         <div className="explorer-layout">
@@ -363,14 +362,14 @@ function Explorer() {
                       </div>
                       <div className="card-subtitle">{columns.length} columns</div>
                     </div>
-                    <button
-                      className="btn btn-primary btn-sm"
+                    <Button
+                      label="Transfer this table"
+                      variant="primary"
+                      size="sm"
                       onClick={() =>
                         navigate('/transfers', { state: { sourceTable: selectedTable } })
                       }
-                    >
-                      Transfer this table
-                    </button>
+                    />
                   </div>
 
                   <TabList
@@ -447,8 +446,8 @@ function Explorer() {
                       ) : preview ? (
                         <>
                           <div className="text-sm text-muted mb-4">
-                            Showing {preview.rows.length} of{' '}
-                            {new Intl.NumberFormat().format(preview.total_rows)} rows
+                            Showing {preview.rows.length} of {NUMBER_FMT.format(preview.total_rows)}{' '}
+                            rows
                           </div>
                           <div
                             className="data-table-wrapper"
@@ -483,13 +482,9 @@ function Explorer() {
               </>
             ) : (
               <div className="card">
-                <div className="empty-state">
-                  <div className="empty-state-icon">
-                    <HiOutlineSearch aria-hidden="true" />
-                  </div>
-                  <h3>Select a table</h3>
-                  <p>Expand a connection in the tree to browse schemas, tables, and columns.</p>
-                </div>
+                <EmptyState icon={HiOutlineSearch} title="Select a table">
+                  Expand a connection in the tree to browse schemas, tables, and columns.
+                </EmptyState>
               </div>
             )}
           </div>

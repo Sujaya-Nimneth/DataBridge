@@ -7,13 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Frontend UI/UX redesign (Data Terminal).** Replaced the amber/teal
-  glassmorphism theme with a dark, token-based design system (IBM Plex Sans
-  + JetBrains Mono for literal code, one accent line for selections,
-  tabular figures, pale status pills, one divided KPI container). No
-  gradients, glows, glass or resting shadows; every class name is unchanged
-  so existing markup keeps working. See
-  [`design/DESIGN-SYSTEM.md`](design/DESIGN-SYSTEM.md).
+- **React 19, React Router v7, and Astryx component migration (`Data Terminal`).**
+  Upgraded the frontend runtime to React 19 and React Router v7 and adopted
+  `@astryxdesign/core` + `@astryxdesign/theme-neutral` (`0.7.16`) as the
+  component system. Encoded the dark *Data Terminal* tokens (`IBM Plex Sans` +
+  `JetBrains Mono` for literal code, `#171719`/`#131217` surfaces, `#4a8ad6` 1px
+  selection bar, tabular figures, pale status pills, and no gradients, glass, or
+  resting shadows) via a custom `defineTheme` build (`frontend/src/themes/databridge.ts`)
+  and explicit CSS cascade layers (`layers.css`: `@layer legacy, reset, astryx-base, astryx-theme, app`).
+  Migrated shell navigation (`AppShell`/`SideNav`), shared primitives (`Dialog`,
+  `TabList`, `Badge`, `EmptyState`, `Skeleton`, `Banner`), and all eight routes
+  while preserving URL state, polling, business logic, and WCAG 2.2 AA
+  accessibility behaviors. See [`design/DESIGN-SYSTEM.md`](design/DESIGN-SYSTEM.md)
+  and [`docs/adr/0005-react19-astryx-adoption.md`](docs/adr/0005-react19-astryx-adoption.md).
 - Transfer detail is now a deep-linkable route (`/transfers/:id`) with live
   progress, computed rows/sec, a freshness/stale state, and execution logs,
   replacing the modal. Admin users moved from a Monitoring tab to
@@ -23,15 +29,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Rebuilt the dashboard, login, connections, explorer, transfers, transfer
   detail, monitoring and admin screens around one question each, with
   reusable loading/empty/error/stale/zero states, inline form validation,
-  `Intl` formatting and consistent copy.
+  `Intl` formatting, module-scoped formatters, `:focus-visible` form states,
+  and consistent copy.
 - Accessibility tier committed to WCAG 2.2 AA
   ([`design/accessibility-requirements.md`](design/accessibility-requirements.md)):
   skip link, labelled main landmark, `aria-live` toasts, focus-visible
   everywhere, inline errors tied with `aria-describedby`, Escape/reduced
   motion, keyboard-operable backdrops and dialogs.
-- Refreshed all nine `docs/screenshots/` captures against the redesigned
-  production build (including the new transfer detail route, admin users
-  route and column-mapping wizard step).
+- Refreshed all nine `docs/screenshots/` captures from the redesigned
+  production build (`1440×900`, including the transfer detail route, admin
+  users route, and column-mapping wizard step), updated `design/ux/`,
+  `design/VALIDATION.md`, `README.md`, and `docs/ARCHITECTURE.md`, and added a
+  Node 22 `frontend-theme` job (`npm run theme:check` + `astryx doctor --built dist`)
+  to `.github/workflows/ci.yml`.
 
 ### Fixed
 

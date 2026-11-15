@@ -1,53 +1,55 @@
 /**
- * Accessible tab list following the WAI-ARIA tabs pattern: roving tabindex,
- * Left/Right (and Up/Down) arrow movement, Home/End, and aria-controls.
+ * Accessible tab list, backed by the Astryx TabList/Tab.
  *
- * The visual treatment is the 1px accent line in index.css (.tabs / .tab).
+ * With role="tablist", Astryx implements the WAI-ARIA tabs pattern: roving
+ * tabindex, Left/Right (and Up/Down) arrows, Home/End, aria-selected and
+ * aria-controls via panelId — the behavior the old hand-rolled component
+ * provided. The wrapper preserves the app's { tabs, activeId, onChange, label,
+ * idPrefix } contract and keeps the 1px accent line through the theme's tab
+ * component overrides (colour is never the only selected-state indicator).
  */
 
-import { useRef } from 'react';
+import { TabList as AstryxTabList, Tab } from '@astryxdesign/core/TabList';
 
 export function TabList({ tabs, activeId, onChange, label, idPrefix = 'tab' }) {
-  const refs = useRef({});
-
-  const onKeyDown = (e, index) => {
+  // Astryx uses manual activation (arrows move focus; selection follows on
+  // Enter/Space). The committed DataBridge pattern is automatic activation:
+  // arrows change the view as focus moves. Compute the target from the tab
+  // that currently holds focus (data-tab-value), falling back to activeId, so
+  // it stays correct even if a parent has not yet re-rendered with the new
+  // selection. Do not preventDefault — Astryx still moves focus itself.
+  const handleKeyDown = (event) => {
+    const focusedValue = event.target?.getAttribute?.('data-tab-value');
+    const current = tabs.findIndex((tab) => tab.id === (focusedValue ?? activeId));
+    if (current < 0) return;
     let next = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % tabs.length;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
-      next = (index - 1 + tabs.length) % tabs.length;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = tabs.length - 1;
-    if (next === null) return;
-    e.preventDefault();
-    onChange(tabs[next].id);
-    refs.current[tabs[next].id]?.focus();
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+      next = (current - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = tabs.length - 1;
+    if (next !== null) onChange(tabs[next].id);
   };
 
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
-      {tabs.map((tab, index) => {
-        const selected = activeId === tab.id;
-        return (
-          <button
-            key={tab.id}
-            ref={(el) => {
-              refs.current[tab.id] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`${idPrefix}-${tab.id}`}
-            aria-selected={selected}
-            aria-controls={`${idPrefix}-panel-${tab.id}`}
-            tabIndex={selected ? 0 : -1}
-            className={`tab ${selected ? 'active' : ''}`}
-            onClick={() => onChange(tab.id)}
-            onKeyDown={(e) => onKeyDown(e, index)}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
+    <AstryxTabList
+      value={activeId}
+      onChange={onChange}
+      role="tablist"
+      aria-label={label}
+      hasDivider
+      onKeyDown={handleKeyDown}
+    >
+      {tabs.map((tab) => (
+        <Tab
+          key={tab.id}
+          value={tab.id}
+          label={tab.label}
+          id={`${idPrefix}-${tab.id}`}
+          panelId={`${idPrefix}-panel-${tab.id}`}
+        />
+      ))}
+    </AstryxTabList>
   );
 }
 

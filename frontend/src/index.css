@@ -51,7 +51,7 @@
   --positive: var(--p-green);
   --negative: var(--p-red);
   --warning: var(--p-amber);
-  --chart-1: #f2f2f3;
+  --chart-1: var(--accent);
   --chart-2: var(--p-red);
   --chart-3: var(--p-blue);
 
@@ -832,11 +832,22 @@ pre,
   color: var(--p-grey-300);
 }
 
-.form-input:focus,
-.form-select:focus {
+.form-input:focus-visible,
+.form-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
+}
+
+.form-select option {
+  background-color: var(--control-bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3 {
+  scroll-margin-top: 24px;
 }
 
 .form-input-sm {
@@ -1151,7 +1162,7 @@ pre,
    ============================================================ */
 .connection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: var(--gap);
 }
 
@@ -1483,7 +1494,7 @@ pre,
   justify-content: center;
   gap: 6px;
   margin-top: 24px;
-  font-size: var(--fs-meta);
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 
@@ -1491,7 +1502,7 @@ pre,
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: var(--fs-meta);
+  font-size: var(--fs-small);
   font-weight: 500;
   padding: 4px;
   text-decoration: underline;
@@ -1613,7 +1624,7 @@ pre,
   max-height: 320px;
   overflow-y: auto;
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
+  font-size: var(--fs-small);
 }
 
 .log-entry {
@@ -1785,6 +1796,7 @@ pre,
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--gap);
+  align-items: start;
 }
 .truncate {
   overflow: hidden;
@@ -2058,8 +2070,11 @@ pre,
 
 .row-total {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .row-total-value {
@@ -2291,5 +2306,12 @@ pre,
   .transfer-summary-arrow {
     transform: rotate(90deg);
     justify-self: center;
+  }
+}
+
+@media (max-width: 900px) {
+  .data-table th,
+  .data-table td {
+    padding-inline: 8px;
   }
 }

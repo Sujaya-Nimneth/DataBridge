@@ -96,11 +96,11 @@ serves). All views show the current Data Terminal design system.
 - **API Docs**: Swagger UI (built-in with FastAPI)
 
 ### Frontend
-- **Framework**: React 18
+- **Framework**: React 19
 - **Build Tool**: Vite 6
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 - **HTTP Client**: Axios (with JWT interceptors)
-- **Styling**: Vanilla CSS (custom design system)
+- **Styling**: Component-scoped CSS with three-layer design tokens (`tokens.css` / custom properties)
 - **Notifications**: react-hot-toast
 - **Icons**: react-icons
 
@@ -325,7 +325,7 @@ See [docs/TESTING.md](docs/TESTING.md) for what each suite covers.
 | **Staging tables for atomicity** | Cross-database copies cannot share a transaction; staging + publish makes transfers atomic anyway and re-runnable without duplicates |
 | **Fernet encryption** | The app needs to decrypt credentials to connect to user databases — symmetric encryption fits this use case, with the key stored separately in env vars |
 | **SQLAlchemy inspect()** | Lets me reflect any user database schema dynamically without knowing its structure ahead of time |
-| **Vanilla CSS + design tokens** | Full control over the dark Data Terminal design system (three-layer CSS custom-property tokens) without framework lock-in; every UI class maps to a token |
+| **Tokenized CSS layers + UI primitives** | Full control over the dark Data Terminal design system (three-layer CSS custom-property tokens with explicit cascade layers) without framework lock-in; every UI pattern maps to documented tokens and accessible primitives |
 | **Batch processing + streaming cursors** | Without batching and server-side cursors, a 10M-row transfer would exhaust memory |
 
 ---

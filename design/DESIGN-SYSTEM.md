@@ -37,29 +37,27 @@ polling fails. Nothing is labelled "live" without a current source.
 
 ## Three-layer tokens
 
-Primitive (raw values) → semantic (purpose) → component (per-control). No raw
-hex in components; components reference semantic tokens only.
+Primitive (raw values) → semantic (purpose) → `defineTheme` (`frontend/src/themes/databridge.ts`, extending `@astryxdesign/theme-neutral`, compiled via `npm run theme:build` into `databridge.css` / `databridge.js` inside `@layer app.theme`) → Astryx **theme targets** (`app-shell`, `app-shell-header`, `app-shell-sidenav`, `side-nav`, `side-nav-item`, `tab`, `tab-indicator`, `card`, `button`, `badge`, `table`). Legacy route rules in `index.css` map onto matching CSS custom properties. No raw hex in components; components consume Astryx tokens or semantic variables only.
 
 ### Colour
 
-| Semantic token | Value | Role |
-|---|---|---|
-| `--ground` | `#171719` | page ground |
-| `--surface` | `#131217` | panels darker than the ground |
-| `--raised` | `#212023` | controls, pills, raised rows |
-| `--border` | `#222224` | card / table / control edges |
-| `--rule` | `#1b1a1f` | row rules, 3–7% darker than surface |
-| `--control` | `#3a3a3e` | control borders, one step stronger |
-| `--text` | `#ffffff` | full ink for running text |
-| `--muted` | `#8a8c92` | secondary text, ≥ 4.5:1 on surface |
-| `--accent` | `#4a8ad6` | 1px selection lines only |
-| `--positive` | `#44a282` | success polarity |
-| `--negative` | `#e5566f` | failure polarity |
-| `--warning` | `#d9a441` | warning / pending polarity |
-| `--chart-1/2/3` | white / negative / accent | one hue per chart |
+| Legacy / semantic token | Astryx theme token (`databridge.ts`) | Dark value | Role |
+|---|---|---|---|
+| `--ground` | `--color-background-body` | `#171719` | page ground |
+| `--surface` | `--color-background-surface`, `--color-background-card` | `#131217` | panels darker than the ground |
+| `--raised` | `--color-background-muted`, `--color-background-popover` | `#212023` | controls, raised rows, tracks |
+| `--border` | `--color-border` | `#222224` | card / table / control edges |
+| `--rule` | — | `#1b1a1f` | row rules, 3–7% darker than surface |
+| `--control` | `--color-border-emphasized` | `#3a3a3e` | control borders, one step stronger |
+| `--text` | `--color-text-primary` | `#ffffff` | full ink for running text |
+| `--muted` | `--color-text-secondary` | `#8a8c92` | secondary text, ≥ 4.5:1 on surface |
+| `--accent` | `--color-accent`, `--focus-outline-color` | `#4a8ad6` | 1px selection lines, single chart hue, focus ring |
+| `--positive` | `--color-success`, `--color-success-muted` / `--color-on-success-muted` | `#44a282` / `#1b2828` on `#5fc39c` | success polarity |
+| `--negative` | `--color-error`, `--color-error-muted` / `--color-on-error-muted` | `#e5566f` / `#2c1a20` on `#f0758b` | failure polarity |
+| `--warning` | `--color-warning`, `--color-warning-muted` / `--color-on-warning-muted` | `#d9a441` / `#2a2416` on `#d9a441` | warning / pending polarity |
+| `--chart-1/2/3` | — | `var(--accent)` / negative / accent | one data hue per chart |
 
-Pills use a pale tint with dark text of the same hue, never saturated fills with
-white text. Red is a signal, not a texture: one red mark per object at most.
+Pills (`badge` target in `databridge.ts`) use muted tinted surfaces with accessible bright ink in dark mode (and pale tint with dark ink in light mode, contrast ≥ 5.9:1), never saturated fills with pure white text. Red is a signal, not a texture: one red mark per object at most. The signature 1px accent selection line is encoded directly on `side-nav-item::before` (selected nav item) and `tab-indicator` (`height: 1px`, `borderRadius: 0px`) with transparent background so no active nav pill ever appears.
 
 ### Type
 
@@ -84,11 +82,11 @@ label per screen). No eyebrows, index numbers or accent words in headlines.
 
 - One grid, equal outer margins, `--gap: 24px`, `--pad: 32px`,
   `--row-height: 42px`, `--control-height: 34px`.
-- Three radii by role: `--radius-card: 6px`, `--radius-control: 4px`,
-  `--radius-pill: 999px`. Chosen by function, not applied to everything.
-- Surfaces are separated by a tone step, never a line *and* a shadow. A shadow
-  belongs only to what truly floats (menu, dialog).
-- Motion (3–4/10): one signature 1px selection-line slide, staggered section
+- Three radii by role: `--radius-card` / `--radius-container: 6px`, `--radius-control` / `--radius-element: 4px`,
+  `--radius-pill` / `--radius-full: 999px`. Encoded in `databridge.ts` (`radius: { base: 4, multiplier: 1 }` plus token + target overrides on `button`, `tab`, `side-nav-item`, `card`, `badge`).
+- Surfaces are separated by a tone step, never a line *and* a shadow (`card` target enforces `boxShadow: 'none'`). A shadow
+  belongs only to what truly floats (menu, dialog, `--shadow-med`).
+- Motion (`motion: { tempo: 0.8, character: 'crisp' }`, 3–4/10): one signature 1px selection-line indication, staggered section
   entrances, feedback on every control. `transform` / `opacity` only, no
   `transition: all`. Full `prefers-reduced-motion` fallback.
 
@@ -143,6 +141,7 @@ HTML before ARIA. The full checklist is the Vercel Web Interface Guidelines.
 
 ## Validation
 
-- `node <skill>/scripts/lint.mjs frontend/src` (app rules): 0 FAIL.
+- `npm run theme:check` (theme build artifacts match `src/themes/databridge.ts`) & `npm run astryx -- doctor --built dist`.
+- `node <skill>/scripts/lint.mjs --app frontend/src`: 0 FAIL.
 - `node <skill>/scripts/inspect.mjs --app <built app>`: 0 FAIL at 1440, 768, 390.
-- `npm test`, `npm run lint`, `npm run build`, and the Vercel-guidelines audit.
+- `npm test`, `npm run lint`, `npm run format:check`, `npm run build`, and the Vercel-guidelines audit.

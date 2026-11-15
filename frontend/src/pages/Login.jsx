@@ -1,11 +1,21 @@
 /**
- * Sign in / Create account. The first screen says plainly what this is and
- * what to do; errors appear beside the field they belong to.
+ * Sign in / Create account. Built from the Astryx login page template: a
+ * minimal centred credential card. The first screen says plainly what this is
+ * and what to do; errors appear beside the field they belong to.
+ *
+ * Keeps the tested contract: exact field labels, the submit button id/label,
+ * the "Create one" toggle and focus-to-first-error on a validation failure.
  */
 
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { Card } from '@astryxdesign/core/Card';
+import { Heading, Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/Stack';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Button } from '@astryxdesign/core/Button';
+import { Banner } from '@astryxdesign/core/Banner';
 
 function Login() {
   const { login, register } = useAuth();
@@ -64,144 +74,109 @@ function Login() {
 
   return (
     <div className="login-page">
-      <main className="login-card">
-        <div className="login-header">
-          <div className="login-logo" aria-hidden="true">
-            D
-          </div>
-          <h1>{isRegister ? 'Create your account' : 'Sign in to DataBridge'}</h1>
-          <p>
-            {isRegister
-              ? 'Connect your databases and start moving data.'
-              : 'Connect to your databases, explore schemas, and run transfers.'}
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          aria-label={isRegister ? 'Registration form' : 'Sign-in form'}
-          noValidate
-        >
-          {serverError && (
-            <div className="alert alert-danger" role="alert">
-              <span>{serverError}</span>
+      <Card className="login-card" padding={6}>
+        <main>
+          <VStack gap={2}>
+            <div className="login-logo" aria-hidden="true">
+              D
             </div>
-          )}
+            <Heading level={1}>
+              {isRegister ? 'Create your account' : 'Sign in to DataBridge'}
+            </Heading>
+            <Text color="secondary">
+              {isRegister
+                ? 'Connect your databases and start moving data.'
+                : 'Connect to your databases, explore schemas, and run transfers.'}
+            </Text>
+          </VStack>
 
-          {isRegister && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="input-fullname">
-                Full Name
-              </label>
-              <input
-                id="input-fullname"
-                className="form-input"
-                type="text"
-                placeholder="Alex Kim…"
-                autoComplete="name"
-                spellCheck="false"
-                value={form.fullName}
-                onChange={(e) => updateForm('fullName', e.target.value)}
-                required
+          <form
+            onSubmit={handleSubmit}
+            aria-label={isRegister ? 'Registration form' : 'Sign-in form'}
+            noValidate
+          >
+            <VStack gap={4}>
+              {serverError && (
+                <Banner
+                  status="error"
+                  role="alert"
+                  title={serverError}
+                  collapsible={false}
+                  container="card"
+                />
+              )}
+
+              {isRegister && (
+                <TextInput
+                  id="input-fullname"
+                  label="Full Name"
+                  type="text"
+                  placeholder="Alex Kim"
+                  autoComplete="name"
+                  hasSpellCheck={false}
+                  value={form.fullName}
+                  onChange={(value) => updateForm('fullName', value)}
+                />
+              )}
+
+              <TextInput
+                id="input-email"
+                label="Email Address"
+                type="email"
+                placeholder="operator@databridge.local"
+                autoComplete="email"
+                hasSpellCheck={false}
+                value={form.email}
+                onChange={(value) => updateForm('email', value)}
               />
-            </div>
-          )}
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="input-email">
-              Email Address
-            </label>
-            <input
-              id="input-email"
-              className="form-input"
-              type="email"
-              placeholder="name@company.com…"
-              autoComplete="email"
-              spellCheck="false"
-              value={form.email}
-              onChange={(e) => updateForm('email', e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="input-password">
-              Password
-            </label>
-            <input
-              id="input-password"
-              className="form-input"
-              type="password"
-              placeholder="••••••••"
-              autoComplete={isRegister ? 'new-password' : 'current-password'}
-              value={form.password}
-              onChange={(e) => updateForm('password', e.target.value)}
-              minLength={8}
-              aria-describedby="password-hint"
-              required
-            />
-            {isRegister && (
-              <span className="form-hint" id="password-hint">
-                At least 8 characters.
-              </span>
-            )}
-          </div>
-
-          {isRegister && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="input-confirm-password">
-                Confirm Password
-              </label>
-              <input
-                id="input-confirm-password"
-                className={`form-input ${fieldError?.field === 'confirmPassword' ? 'input-invalid' : ''}`}
+              <TextInput
+                id="input-password"
+                label="Password"
                 type="password"
                 placeholder="••••••••"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={(e) => updateForm('confirmPassword', e.target.value)}
-                minLength={8}
-                aria-invalid={fieldError?.field === 'confirmPassword' ? 'true' : undefined}
-                aria-describedby={
-                  fieldError?.field === 'confirmPassword' ? 'confirm-error' : undefined
-                }
-                required
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                value={form.password}
+                onChange={(value) => updateForm('password', value)}
+                description={isRegister ? 'At least 8 characters.' : undefined}
               />
-              {fieldError?.field === 'confirmPassword' && (
-                <span className="form-error" id="confirm-error" role="alert">
-                  {fieldError.message}
-                </span>
+
+              {isRegister && (
+                <TextInput
+                  id="input-confirm-password"
+                  label="Confirm Password"
+                  type="password"
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={(value) => updateForm('confirmPassword', value)}
+                  status={
+                    fieldError?.field === 'confirmPassword'
+                      ? { type: 'error', message: fieldError.message }
+                      : undefined
+                  }
+                />
               )}
-            </div>
-          )}
 
-          <button
-            id="btn-login-submit"
-            className="btn btn-primary w-full btn-lg"
-            type="submit"
-            disabled={loading}
-            style={{ justifyContent: 'center', marginTop: '8px' }}
-          >
-            {loading ? (
-              <>
-                <span className="spinner" aria-hidden="true" />
-                <span>Signing in…</span>
-              </>
-            ) : isRegister ? (
-              'Create Account'
-            ) : (
-              'Sign In'
-            )}
-          </button>
-        </form>
+              <Button
+                id="btn-login-submit"
+                label={isRegister ? 'Create Account' : 'Sign In'}
+                variant="primary"
+                type="submit"
+                width="100%"
+                isLoading={loading}
+              />
+            </VStack>
+          </form>
 
-        <div className="login-toggle">
-          {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button type="button" onClick={toggleMode} id="btn-toggle-auth">
-            {isRegister ? 'Sign In' : 'Create one'}
-          </button>
-        </div>
-      </main>
+          <div className="login-toggle">
+            {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button type="button" onClick={toggleMode} id="btn-toggle-auth">
+              {isRegister ? 'Sign In' : 'Create one'}
+            </button>
+          </div>
+        </main>
+      </Card>
     </div>
   );
 }
