@@ -23,7 +23,8 @@ import {
   HiOutlineSwitchHorizontal,
 } from 'react-icons/hi';
 
-const formatRows = (n) => (n === null || n === undefined ? '?' : new Intl.NumberFormat().format(n));
+const NUMBER_FMT = new Intl.NumberFormat();
+const formatRows = (n) => (n === null || n === undefined ? '?' : NUMBER_FMT.format(n));
 
 function Transfers() {
   const [transfers, setTransfers] = useState([]);
@@ -670,11 +671,14 @@ function Transfers() {
                   className="form-input"
                   value={wizardForm.target_table}
                   placeholder={wizardForm.source_table || 'Enter table name'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="wizard-target-table-hint"
                   onChange={(e) =>
                     setWizardForm((prev) => ({ ...prev, target_table: e.target.value }))
                   }
                 />
-                <div className="text-xs text-muted" style={{ marginTop: '4px' }}>
+                <div id="wizard-target-table-hint" className="form-hint">
                   Leave empty to use the same name as source. The table will be auto-created if it
                   doesn&apos;t exist.
                 </div>
@@ -752,6 +756,8 @@ function Transfers() {
                           className="form-input form-input-sm column-mapping-rename"
                           placeholder="same name"
                           aria-label={`Target name for ${col.name}`}
+                          autoComplete="off"
+                          spellCheck={false}
                           value={columnSelection.rename[col.name] || ''}
                           disabled={!columnSelection.include[col.name]}
                           onChange={(e) =>

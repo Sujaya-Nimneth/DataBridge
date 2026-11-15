@@ -832,11 +832,22 @@ pre,
   color: var(--p-grey-300);
 }
 
-.form-input:focus,
-.form-select:focus {
+.form-input:focus-visible,
+.form-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
+}
+
+.form-select option {
+  background-color: var(--control-bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3 {
+  scroll-margin-top: 24px;
 }
 
 .form-input-sm {

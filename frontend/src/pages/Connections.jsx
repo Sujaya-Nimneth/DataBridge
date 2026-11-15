@@ -18,6 +18,11 @@ import {
   HiOutlineDatabase,
 } from 'react-icons/hi';
 
+const TESTED_DATE_FMT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
 function Connections() {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -235,11 +240,7 @@ function Connections() {
                 {!conn.is_active && <StatusBadge status="inactive" label="inactive" />}
                 {conn.last_tested_at && (
                   <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
-                    Tested{' '}
-                    {new Intl.DateTimeFormat(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(conn.last_tested_at))}
+                    Tested {TESTED_DATE_FMT.format(new Date(conn.last_tested_at))}
                   </span>
                 )}
               </div>
@@ -312,6 +313,8 @@ function Connections() {
                 className="form-input"
                 value={form.name}
                 placeholder="Production database…"
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 aria-invalid={formErrors.name ? 'true' : undefined}
                 aria-describedby={formErrors.name ? 'err-conn-name' : undefined}
@@ -354,6 +357,8 @@ function Connections() {
                   className="form-input"
                   value={form.host}
                   placeholder="localhost…"
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => setForm({ ...form, host: e.target.value })}
                   aria-invalid={formErrors.host ? 'true' : undefined}
                   aria-describedby={formErrors.host ? 'err-conn-host' : undefined}
@@ -407,6 +412,8 @@ function Connections() {
                 className="form-input"
                 value={form.database_name}
                 placeholder="mydb"
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(e) => setForm({ ...form, database_name: e.target.value })}
                 required
               />
@@ -421,6 +428,8 @@ function Connections() {
                   className="form-input"
                   value={form.username}
                   placeholder="postgres"
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
                   required
                 />

@@ -25,6 +25,9 @@ const statusBadge = (status) =>
     unknown: 'badge-neutral',
   })[status] || 'badge-neutral';
 
+const NUMBER_FMT = new Intl.NumberFormat();
+const DATE_MEDIUM_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
 function formatTime(ts) {
   if (!ts) return '';
   const date = new Date(ts);
@@ -32,7 +35,7 @@ function formatTime(ts) {
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+  return DATE_MEDIUM_FMT.format(date);
 }
 
 function Kpi({ label, value, unit, to }) {
@@ -250,7 +253,7 @@ function Dashboard() {
           <div className="row-total">
             <span className="stat-label">Total rows transferred</span>
             <span className="row-total-value">
-              {new Intl.NumberFormat().format(stats.total_rows_transferred)}
+              {NUMBER_FMT.format(stats.total_rows_transferred)}
             </span>
             <span className="card-subtitle">Across {stats.total_transfers ?? 0} transfers</span>
           </div>

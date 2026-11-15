@@ -14,6 +14,11 @@ import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
 import { HiOutlineRefresh } from 'react-icons/hi';
 
+const FRESHNESS_TIME_FMT = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 export function SkeletonBlock({ width = '100%', height = 14, className = '' }) {
   return <Skeleton className={className} width={width} height={height} radius={1} />;
 }
@@ -34,9 +39,7 @@ export function SkeletonRows({ rows = 4 }) {
  * polling cycle fails.
  */
 export function Freshness({ updatedAt, onRefresh, loading = false, stale = false }) {
-  const time = updatedAt
-    ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(updatedAt)
-    : null;
+  const time = updatedAt ? FRESHNESS_TIME_FMT.format(updatedAt) : null;
 
   return (
     <span className={`freshness ${stale ? 'freshness-stale' : ''}`} aria-live="polite">

@@ -15,7 +15,15 @@ import { Heading } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
 import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
 
-const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
+const NUMBER_FMT = new Intl.NumberFormat();
+const DATE_TIME_FMT = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+const WEEKDAY_FMT = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const DATE_MEDIUM_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
+const number = (n) => (n === null || n === undefined ? '–' : NUMBER_FMT.format(n));
 
 function Monitoring() {
   const [stats, setStats] = useState(null);
@@ -62,10 +70,7 @@ function Monitoring() {
 
   const formatTime = (ts) => {
     if (!ts) return '–';
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(ts));
+    return DATE_TIME_FMT.format(new Date(ts));
   };
 
   if (loading) {
@@ -205,12 +210,8 @@ function Monitoring() {
                     const heightPct =
                       maxDailyCount > 0 ? Math.max((day.count / maxDailyCount) * 100, 3) : 3;
                     const date = new Date(day.date);
-                    const label = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
-                      date,
-                    );
-                    const full = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-                      date,
-                    );
+                    const label = WEEKDAY_FMT.format(date);
+                    const full = DATE_MEDIUM_FMT.format(date);
                     return (
                       <div key={day.date} className="bar-chart-column">
                         <span className="bar-chart-value">{day.count}</span>

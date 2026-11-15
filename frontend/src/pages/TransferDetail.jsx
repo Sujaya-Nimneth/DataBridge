@@ -30,7 +30,15 @@ function formatDuration(start, end) {
   return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
 }
 
-const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
+const NUMBER_FMT = new Intl.NumberFormat();
+const RATE_FMT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+const LOG_TIME_FMT = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+const number = (n) => (n === null || n === undefined ? '–' : NUMBER_FMT.format(n));
 
 function TransferDetail() {
   const { id } = useParams();
@@ -214,7 +222,7 @@ function TransferDetail() {
           <h2 className="card-title">Progress</h2>
           {isLive && rate !== null && (
             <span className="text-sm text-muted" aria-live="polite">
-              {new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(rate)} rows/s
+              {RATE_FMT.format(rate)} rows/s
             </span>
           )}
         </div>
@@ -270,11 +278,7 @@ function TransferDetail() {
             logs.map((log) => (
               <div key={log.id} className="log-entry">
                 <time className="log-time" dateTime={log.timestamp}>
-                  {new Intl.DateTimeFormat(undefined, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  }).format(new Date(log.timestamp))}
+                  {LOG_TIME_FMT.format(new Date(log.timestamp))}
                 </time>
                 <span className={`log-level ${log.level}`}>{log.level}</span>
                 <span className="log-message">{log.message}</span>

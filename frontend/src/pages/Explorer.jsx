@@ -20,6 +20,8 @@ import {
   HiOutlineSearch,
 } from 'react-icons/hi';
 
+const NUMBER_FMT = new Intl.NumberFormat();
+
 function Explorer() {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,13 +211,7 @@ function Explorer() {
           <EmptyState
             icon={HiOutlineSearch}
             title="No connections available"
-            action={
-              <Button
-                label="Add a connection"
-                variant="primary"
-                onClick={() => navigate('/connections')}
-              />
-            }
+            action={<Button label="Add a connection" variant="primary" href="/connections" />}
           >
             Add a database connection first to start exploring data.
           </EmptyState>
@@ -450,8 +446,8 @@ function Explorer() {
                       ) : preview ? (
                         <>
                           <div className="text-sm text-muted mb-4">
-                            Showing {preview.rows.length} of{' '}
-                            {new Intl.NumberFormat().format(preview.total_rows)} rows
+                            Showing {preview.rows.length} of {NUMBER_FMT.format(preview.total_rows)}{' '}
+                            rows
                           </div>
                           <div
                             className="data-table-wrapper"
