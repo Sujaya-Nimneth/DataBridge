@@ -1,11 +1,26 @@
 /**
- * Sidebar navigation component with active state indicators.
- * On small screens it becomes an off-canvas drawer opened from the top bar.
+ * Application side navigation, built on Astryx SideNav.
+ *
+ * AppShell (in App.jsx) owns the responsive frame: above the md breakpoint this
+ * SideNav is inline; below it AppShell moves the same nav into a focus-trapping
+ * mobile drawer and provides the toggle and the skip link. SideNavItem's
+ * isSelected sets aria-current="page", so the current destination is announced
+ * rather than carried by colour alone (WCAG 2.2 AA keep).
+ *
+ * Domain icons (dashboard, database, transfer, chart, users) are not in
+ * Astryx's semantic icon set, so the existing react-icons outline SVGs are
+ * passed directly as custom icons. They will be revisited when the icon system
+ * is consolidated in the primitives phase.
  */
 
-import { useEffect, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from '@astryxdesign/core/SideNav';
+import { NavIcon } from '@astryxdesign/core/NavIcon';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Avatar } from '@astryxdesign/core/Avatar';
+import { HStack } from '@astryxdesign/core/Stack';
+import { Text } from '@astryxdesign/core/Text';
 import {
   HiOutlineViewGrid,
   HiOutlineDatabase,
@@ -14,8 +29,6 @@ import {
   HiOutlineChartBar,
   HiOutlineUsers,
   HiOutlineLogout,
-  HiOutlineMenu,
-  HiOutlineX,
 } from 'react-icons/hi';
 
 const baseNavItems = [
@@ -26,145 +39,66 @@ const baseNavItems = [
   { path: '/monitoring', icon: HiOutlineChartBar, label: 'Monitoring' },
 ];
 
+function isCurrent(pathname, path) {
+  // Nested routes (/transfers/:id, /admin/users) keep their section selected.
+  if (path === '/') return pathname === '/';
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+
   const navItems =
     user?.role === 'admin'
       ? [...baseNavItems, { path: '/admin/users', icon: HiOutlineUsers, label: 'Users' }]
       : baseNavItems;
-
-  // Close the drawer whenever the route changes.
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
-
-  // Close on Escape and lock background scrolling while open.
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.body.classList.add('no-scroll');
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.classList.remove('no-scroll');
-    };
-  }, [menuOpen]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const initials = user?.full_name
-    ? user.full_name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    : '?';
-
   return (
-    <>
-      <header className="mobile-topbar">
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon mobile-menu-button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open navigation menu"
-          aria-expanded={menuOpen}
-          aria-controls="main-sidebar"
-          id="btn-open-menu"
-        >
-          <HiOutlineMenu />
-        </button>
-        <div className="mobile-topbar-brand">
-          <span className="sidebar-logo">D</span>
-          <span>DataBridge</span>
-        </div>
-      </header>
-
-      {menuOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          onClick={() => setMenuOpen(false)}
-          aria-label="Close navigation menu"
+    <SideNav
+      aria-label="Main navigation"
+      header={
+        <SideNavHeading
+          icon={<NavIcon icon={<span className="sidebar-logo">D</span>} />}
+          heading="DataBridge"
+          subheading="Data Platform"
+          headingHref="/"
         />
-      )}
-
-      <aside
-        className={`sidebar ${menuOpen ? 'open' : ''}`}
-        id="main-sidebar"
-        aria-label="Main navigation"
-      >
-        <div className="sidebar-header">
-          <div className="sidebar-logo">D</div>
-          <div className="sidebar-brand">
-            <h1>DataBridge</h1>
-            <span>Data Platform</span>
-          </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon sidebar-close"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Close navigation menu"
-          >
-            <HiOutlineX />
-          </button>
-        </div>
-
-        <nav className="sidebar-nav">
-          <div className="sidebar-section-label">Navigation</div>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              title={item.label}
-              aria-label={item.label}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              id={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-            >
-              <span className="nav-item-icon">
-                <item.icon aria-hidden="true" />
-              </span>
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar" aria-hidden="true">
-              {initials}
-            </div>
-            <div className="user-details">
-              <div className="user-name">{user?.full_name}</div>
-              <div className="user-role">{user?.role}</div>
-            </div>
-            <button
-              type="button"
-              className="btn-ghost btn-icon"
-              onClick={handleLogout}
-              title="Logout"
-              aria-label="Log out"
-              id="btn-logout"
-              style={{ marginLeft: 'auto' }}
-            >
-              <HiOutlineLogout />
-            </button>
-          </div>
-        </div>
-      </aside>
-    </>
+      }
+      footer={
+        <HStack gap={2} align="center">
+          <Avatar name={user?.full_name || 'User'} size="sm" tooltip={false} />
+          <Text type="supporting" color="secondary" maxLines={1}>
+            {user?.full_name || '?'} · {user?.role}
+          </Text>
+          <IconButton
+            label="Log out"
+            variant="ghost"
+            icon={<HiOutlineLogout aria-hidden="true" />}
+            onClick={handleLogout}
+            tooltip="Log out"
+          />
+        </HStack>
+      }
+    >
+      <SideNavSection title="Navigation" isHeaderHidden>
+        {navItems.map((item) => (
+          <SideNavItem
+            key={item.path}
+            label={item.label}
+            icon={item.icon}
+            href={item.path}
+            isSelected={isCurrent(location.pathname, item.path)}
+          />
+        ))}
+      </SideNavSection>
+    </SideNav>
   );
 }
 
