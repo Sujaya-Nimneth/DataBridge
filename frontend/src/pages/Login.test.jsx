@@ -28,12 +28,12 @@ describe('Login page', () => {
     renderLogin();
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText('Email Address'), 'user@example.com');
+    await user.type(screen.getByLabelText('Email Address'), 'operator@databridge.local');
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() =>
-      expect(loginMock).toHaveBeenCalledWith('user@example.com', 'supersecret123'),
+      expect(loginMock).toHaveBeenCalledWith('operator@databridge.local', 'supersecret123'),
     );
     expect(registerMock).not.toHaveBeenCalled();
   });
@@ -44,14 +44,18 @@ describe('Login page', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByText('Create one'));
-    await user.type(screen.getByLabelText('Full Name'), 'New User');
-    await user.type(screen.getByLabelText('Email Address'), 'new@example.com');
+    await user.type(screen.getByLabelText('Full Name'), 'New Operator');
+    await user.type(screen.getByLabelText('Email Address'), 'engineer@databridge.local');
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
     await user.type(screen.getByLabelText('Confirm Password'), 'supersecret123');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() =>
-      expect(registerMock).toHaveBeenCalledWith('new@example.com', 'supersecret123', 'New User'),
+      expect(registerMock).toHaveBeenCalledWith(
+        'engineer@databridge.local',
+        'supersecret123',
+        'New Operator',
+      ),
     );
   });
 
@@ -60,8 +64,8 @@ describe('Login page', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByText('Create one'));
-    await user.type(screen.getByLabelText('Full Name'), 'New User');
-    await user.type(screen.getByLabelText('Email Address'), 'new@example.com');
+    await user.type(screen.getByLabelText('Full Name'), 'New Operator');
+    await user.type(screen.getByLabelText('Email Address'), 'engineer@databridge.local');
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
     await user.type(screen.getByLabelText('Confirm Password'), 'different-pass');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
@@ -80,7 +84,7 @@ describe('Login page', () => {
     renderLogin();
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText('Email Address'), 'user@example.com');
+    await user.type(screen.getByLabelText('Email Address'), 'operator@databridge.local');
     await user.type(screen.getByLabelText('Password'), 'supersecret123');
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
