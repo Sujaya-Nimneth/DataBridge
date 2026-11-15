@@ -8,13 +8,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { transfersAPI } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
-import { Freshness, SkeletonBlock } from '../components/States';
+import { Freshness, SkeletonBlock, EmptyState } from '../components/States';
 import Modal from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
+import { Heading } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { HiOutlineArrowRight, HiOutlineArrowLeft, HiOutlineStop } from 'react-icons/hi';
 
 function formatDuration(start, end) {
@@ -102,9 +105,13 @@ function TransferDetail() {
     return (
       <div className="page-container">
         <div className="detail-head">
-          <Link className="btn btn-ghost btn-sm" to="/transfers">
-            <HiOutlineArrowLeft aria-hidden="true" /> All transfers
-          </Link>
+          <Button
+            label="All transfers"
+            variant="ghost"
+            size="sm"
+            href="/transfers"
+            icon={<HiOutlineArrowLeft aria-hidden="true" />}
+          />
         </div>
         <div className="card" aria-hidden="true">
           <SkeletonBlock width="40%" height={26} />
@@ -120,17 +127,20 @@ function TransferDetail() {
     return (
       <div className="page-container">
         <div className="detail-head">
-          <Link className="btn btn-ghost btn-sm" to="/transfers">
-            <HiOutlineArrowLeft aria-hidden="true" /> All transfers
-          </Link>
+          <Button
+            label="All transfers"
+            variant="ghost"
+            size="sm"
+            href="/transfers"
+            icon={<HiOutlineArrowLeft aria-hidden="true" />}
+          />
         </div>
-        <div className="empty-state">
-          <h3>Transfer not found</h3>
-          <p>{loadError || 'This transfer may have been removed.'}</p>
-          <button className="btn btn-secondary" type="button" onClick={() => load()}>
-            Retry
-          </button>
-        </div>
+        <EmptyState
+          title="Transfer not found"
+          action={<Button label="Retry" variant="secondary" onClick={() => load()} />}
+        >
+          {loadError || 'This transfer may have been removed.'}
+        </EmptyState>
       </div>
     );
   }
@@ -142,15 +152,19 @@ function TransferDetail() {
   return (
     <div className="page-container">
       <div className="detail-head">
-        <Link className="btn btn-ghost btn-sm" to="/transfers">
-          <HiOutlineArrowLeft aria-hidden="true" /> All transfers
-        </Link>
+        <Button
+          label="All transfers"
+          variant="ghost"
+          size="sm"
+          href="/transfers"
+          icon={<HiOutlineArrowLeft aria-hidden="true" />}
+        />
         <Freshness updatedAt={updatedAt} onRefresh={() => load()} stale={stale} />
       </div>
 
       <div className="page-header">
         <div>
-          <h1>Transfer detail</h1>
+          <Heading level={1}>Transfer detail</Heading>
           <p className="page-finding">
             {job.status === 'failed'
               ? 'This transfer failed. The error and logs explain what happened.'
@@ -164,9 +178,12 @@ function TransferDetail() {
         <div className="page-header-actions">
           <StatusBadge status={job.status} />
           {isLive && (
-            <button className="btn btn-danger" type="button" onClick={() => setConfirmCancel(true)}>
-              <HiOutlineStop aria-hidden="true" /> Cancel transfer
-            </button>
+            <Button
+              label="Cancel transfer"
+              variant="destructive"
+              onClick={() => setConfirmCancel(true)}
+              icon={<HiOutlineStop aria-hidden="true" />}
+            />
           )}
         </div>
       </div>
@@ -218,17 +235,15 @@ function TransferDetail() {
           </div>
         </div>
         {(isLive || job.status === 'completed') && pct !== null && (
-          <div
-            className="progress-bar mt-4"
-            style={{ height: '8px' }}
-            role="progressbar"
-            aria-label="Rows transferred"
-            aria-valuenow={transferred}
-            aria-valuemin={0}
-            aria-valuemax={total ?? 0}
-            aria-valuetext={`${number(transferred)} of ${number(total)} rows`}
-          >
-            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          <div className="mt-4">
+            <ProgressBar
+              label="Rows transferred"
+              value={transferred}
+              max={total ?? 0}
+              hasValueLabel
+              formatValueLabel={() => `${number(transferred)} of ${number(total)} rows`}
+              variant={job.status === 'failed' ? 'error' : 'accent'}
+            />
           </div>
         )}
         <span className="card-subtitle">
@@ -276,16 +291,12 @@ function TransferDetail() {
           onClose={() => setConfirmCancel(false)}
           footer={
             <>
-              <button
-                className="btn btn-secondary"
-                type="button"
+              <Button
+                label="Keep running"
+                variant="secondary"
                 onClick={() => setConfirmCancel(false)}
-              >
-                Keep running
-              </button>
-              <button className="btn btn-danger" type="button" onClick={cancelTransfer}>
-                Cancel transfer
-              </button>
+              />
+              <Button label="Cancel transfer" variant="destructive" onClick={cancelTransfer} />
             </>
           }
         >
