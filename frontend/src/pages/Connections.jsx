@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { connectionsAPI } from '../api/client';
 import Modal from '../components/Modal';
+import { StatusBadge } from '../components/StatusBadge';
 import toast from 'react-hot-toast';
 import {
   HiOutlinePlus,
@@ -159,11 +160,6 @@ function Connections() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const map = { success: 'badge-success', failed: 'badge-danger', unknown: 'badge-neutral' };
-    return map[status] || 'badge-neutral';
-  };
-
   if (loading) {
     return (
       <div className="page-container">
@@ -224,11 +220,8 @@ function Connections() {
               </div>
 
               <div className="connection-status">
-                <span className={`badge ${getStatusBadge(conn.last_test_status)}`}>
-                  <span className="badge-dot"></span>
-                  {conn.last_test_status}
-                </span>
-                {!conn.is_active && <span className="badge badge-neutral">inactive</span>}
+                <StatusBadge status={conn.last_test_status} />
+                {!conn.is_active && <StatusBadge status="inactive" label="inactive" />}
                 {conn.last_tested_at && (
                   <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>
                     Tested{' '}

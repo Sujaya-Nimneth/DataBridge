@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { usePolling } from '../hooks/usePolling';
 import Modal from '../components/Modal';
 import { TabList } from '../components/Tabs';
+import { StatusBadge } from '../components/StatusBadge';
 import {
   HiOutlinePlus,
   HiOutlinePlay,
@@ -236,17 +237,6 @@ function Transfers() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const map = {
-      completed: 'badge-success',
-      running: 'badge-primary',
-      failed: 'badge-danger',
-      pending: 'badge-warning',
-      cancelled: 'badge-neutral',
-    };
-    return map[status] || 'badge-neutral';
-  };
-
   const formatDuration = (start, end) => {
     if (!start) return '–';
     const s = new Date(start);
@@ -393,10 +383,7 @@ function Transfers() {
                         <div className="text-xs text-muted font-mono">{tx.target_table}</div>
                       </td>
                       <td>
-                        <span className={`badge ${getStatusBadge(tx.status)}`}>
-                          <span className="badge-dot"></span>
-                          {tx.status}
-                        </span>
+                        <StatusBadge status={tx.status} />
                       </td>
                       <td className="transfer-progress-cell">
                         {tx.status === 'running' ? (

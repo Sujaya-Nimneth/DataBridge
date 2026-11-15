@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Freshness, SkeletonBlock, SkeletonRows } from '../components/States';
 import { TabList } from '../components/Tabs';
+import { StatusBadge } from '../components/StatusBadge';
+import { Badge } from '@astryxdesign/core/Badge';
 import { HiOutlineDatabase, HiOutlineClipboardList } from 'react-icons/hi';
 
 const number = (n) => (n === null || n === undefined ? '–' : new Intl.NumberFormat().format(n));
@@ -55,19 +57,6 @@ function Monitoring() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
-
-  const getStatusBadge = (status) => {
-    const map = {
-      completed: 'badge-success',
-      running: 'badge-primary',
-      failed: 'badge-danger',
-      pending: 'badge-warning',
-      cancelled: 'badge-neutral',
-      success: 'badge-success',
-      unknown: 'badge-neutral',
-    };
-    return map[status] || 'badge-neutral';
-  };
 
   const formatTime = (ts) => {
     if (!ts) return '–';
@@ -185,10 +174,7 @@ function Monitoring() {
                       return (
                         <div className="distribution-row" key={status}>
                           <span className="distribution-label">
-                            <span className={`badge ${getStatusBadge(status)}`}>
-                              <span className="badge-dot" aria-hidden="true" />
-                              {status}
-                            </span>
+                            <StatusBadge status={status} />
                           </span>
                           <span className="distribution-bar">
                             <span className="distribution-fill" style={{ width: `${pct}%` }} />
@@ -279,17 +265,10 @@ function Monitoring() {
                       <tr key={conn.id}>
                         <td style={{ fontWeight: 600 }}>{conn.name}</td>
                         <td>
-                          <span
-                            className={`badge ${conn.db_type === 'postgresql' ? 'badge-primary' : 'badge-info'}`}
-                          >
-                            {conn.db_type}
-                          </span>
+                          <Badge variant="info" label={conn.db_type} />
                         </td>
                         <td>
-                          <span className={`badge ${getStatusBadge(conn.status)}`}>
-                            <span className="badge-dot"></span>
-                            {conn.status}
-                          </span>
+                          <StatusBadge status={conn.status} />
                         </td>
                         <td className="text-sm text-muted">{formatTime(conn.last_tested_at)}</td>
                         <td className="text-sm text-muted truncate">{conn.message || '–'}</td>
@@ -331,10 +310,7 @@ function Monitoring() {
                       <tr key={item.id}>
                         <td>{item.description}</td>
                         <td>
-                          <span className={`badge ${getStatusBadge(item.status)}`}>
-                            <span className="badge-dot"></span>
-                            {item.status}
-                          </span>
+                          <StatusBadge status={item.status} />
                         </td>
                         <td className="text-sm">{number(item.rows)}</td>
                         <td className="text-sm text-muted">{formatTime(item.timestamp)}</td>

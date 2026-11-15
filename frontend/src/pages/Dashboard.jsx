@@ -11,6 +11,7 @@ import { monitoringAPI } from '../api/client';
 import { HiOutlineClipboardList, HiOutlineDatabase } from 'react-icons/hi';
 import { SkeletonBlock } from '../components/States';
 import { Freshness } from '../components/States';
+import { StatusBadge } from '../components/StatusBadge';
 
 const statusBadge = (status) =>
   ({
@@ -200,10 +201,7 @@ function Dashboard() {
                   <div className="activity-content">
                     <div className="activity-description">{item.description}</div>
                     <div className="activity-meta">
-                      <span className={`badge ${statusBadge(item.status)}`}>
-                        <span className="badge-dot" aria-hidden="true" />
-                        {item.status}
-                      </span>
+                      <StatusBadge status={item.status} />
                       <time className="activity-time" dateTime={item.timestamp}>
                         {formatTime(item.timestamp)}
                       </time>
@@ -252,10 +250,7 @@ function Dashboard() {
                     {conn.db_type === 'postgresql' ? 'PG' : 'MY'}
                   </span>
                   <span className="object-name truncate">{conn.name}</span>
-                  <span className={`badge ${statusBadge(conn.status)}`}>
-                    <span className="badge-dot" aria-hidden="true" />
-                    {conn.status}
-                  </span>
+                  <StatusBadge status={conn.status} />
                 </li>
               ))}
             </ul>

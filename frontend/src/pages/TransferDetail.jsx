@@ -14,16 +14,8 @@ import { transfersAPI } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 import { Freshness, SkeletonBlock } from '../components/States';
 import Modal from '../components/Modal';
+import { StatusBadge } from '../components/StatusBadge';
 import { HiOutlineArrowRight, HiOutlineArrowLeft, HiOutlineStop } from 'react-icons/hi';
-
-const statusBadge = (status) =>
-  ({
-    completed: 'badge-success',
-    running: 'badge-primary',
-    failed: 'badge-danger',
-    pending: 'badge-warning',
-    cancelled: 'badge-neutral',
-  })[status] || 'badge-neutral';
 
 function formatDuration(start, end) {
   if (!start) return '–';
@@ -170,10 +162,7 @@ function TransferDetail() {
           </p>
         </div>
         <div className="page-header-actions">
-          <span className={`badge ${statusBadge(job.status)}`}>
-            <span className="badge-dot" aria-hidden="true" />
-            {job.status}
-          </span>
+          <StatusBadge status={job.status} />
           {isLive && (
             <button className="btn btn-danger" type="button" onClick={() => setConfirmCancel(true)}>
               <HiOutlineStop aria-hidden="true" /> Cancel transfer
