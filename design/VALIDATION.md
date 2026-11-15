@@ -1,109 +1,65 @@
 # Redesign Validation Report
 
-**Date**: 2026-11-11
+**Date**: 2026-11-15
 **Branch**: `testing-main`
-**Scope**: Full frontend UI/UX redesign (design system, 8 screens, 2 new
-routes, URL state, states, accessibility, copy, motion, tests, docs).
+**Scope**: Full frontend UI/UX redesign migrated onto React 19, React Router v7, and Astryx (`@astryxdesign/core@0.7.16`) with a custom dark *Data Terminal* `defineTheme` (`frontend/src/themes/databridge.ts`), explicit CSS cascade layers (`layers.css`), 8 updated UX specs (`APPROVED` in `design/ux/REVIEW.md`), accessibility polish, WIG/React best-practice fixes, tests, screenshots, and CI gating.
 
-All figures below were measured, not estimated. Where a check could not run,
-it is named under "Not run" rather than reported as a pass.
+All figures below were measured on the current build unless stated otherwise. Where a check could not run, it is recorded under **Not run / limitations** rather than reported as a pass.
 
 ## Automated checks
 
-| Check | Before | After | Command |
+| Check | Baseline (pre-redesign) | Current (Astryx + React 19) | Command |
 |---|---|---|---|
-| App-screen lint (design-taste-frontend) | **15 FAIL / 61 WARN** on 3 files | **0 FAIL / 34 WARN** on all production files | `node lint.mjs --app frontend/src/...` |
-| Vitest | 18 passed (4 files) | **32 passed (7 files)** | `npm test` |
+| App-screen lint (`design-taste-frontend`) | **15 FAIL / 61 WARN** (3 files) | **0 FAIL / 38 WARN** (33 files) | `node scripts/lint.mjs --app frontend/src` |
+| Production DOM/layout inspect (`inspect.mjs`) | 0 FAIL / 2 WARN (`/login` only) | **0 FAIL / 1 WARN** (`/login`) | `node scripts/inspect.mjs --app http://localhost:4173` |
+| Cross-route viewport matrix (9 routes × 3 widths) | not automated across all 27 cells | **0 FAIL** across all 27 captures; **0 WARN / `overflowX: false`** on all `768px` & `390px` views | `inspect_all_routes.mjs` |
+| Vitest | 18 passed (4 files) | **35 passed (8 files)** | `npm test` |
 | ESLint | pass | **pass** | `npm run lint` |
 | Prettier | n/a | **pass** | `npm run format:check` |
-| Vite production build | pass | **pass** | `npm run build` |
+| Astryx theme parity check | n/a | **pass** (`databridge.ts` matches built CSS/JS/d.ts) | `npm run theme:check` |
+| Vite production build | pass | **pass** (`2955` modules, `2.40s`) | `npm run build` |
+| Astryx doctor (`dist/`) | n/a | **11 pass, 0 warn, 0 fail, 13 info** | `npm run astryx -- doctor --built dist` |
+| Astryx doctor (source `.`) | n/a | **11 pass, 1 warn, 0 fail, 12 info** (`812` legacy-markup findings) | `npm run astryx -- doctor --built .` |
 
-The 34 remaining WARNs are all app-screen allowances documented in
-`DESIGN-SYSTEM.md`: monospace used only for literal code/identifiers,
-shadows only on dialogs/focus/selection/inset selection marks, sentence-case
-section labels, and em-dashes in comments. In page mode (wrong for a
-dashboard) the same source would flag 1px table/panel borders — the app
-rule set relaxes exactly those.
+The 38 remaining `lint.mjs --app` WARNs match documented Data Terminal allowances: 28× `[mono]` (monospace reserved for SQL/code/identifiers/logs), 6× `[shadow]` (dialog overlays and generated `databridge.css` focus/selection rules), 3× `[eyebrow]` (`.section-label`), and 1× `[em-dash]` (`12` occurrences).
 
-### What the lint FAILs were
+### Astryx `doctor` and `is-my-code-good` evidence
 
-Before: 13 gradient fills, 2 gradient-clipped text, 18 `backdrop-filter`
-(glass), 21 shadows/glows, 10 `transition: all`, framework-default colours,
-and monospace misuse. After: all gradients, glass, glows, resting shadows and
-`transition: all` removed; the accent is a 1px line only.
+- `npm run astryx -- doctor --built dist` passes (`built-astryx-usage`: `[ok]`, Node `v24.13.1 >= 22.13.0`, `@astryxdesign/core` & `@astryxdesign/cli` aligned at `0.7.16`).
+- `npm run astryx -- doctor --built .` reports `built-astryx-usage: [ok]` (`51 imports from @astryxdesign/core, @astryxdesign/theme-neutral in 21 files; 99 component uses`) alongside `built-astryx-purity: [warn]` (`812 findings`: Astryx components `415`, Styling `370`, Icons `27`).
+- Under the `astryx docs is-my-code-good` rubric: **App fit**, theme tokens/overrides, `AppShell`/`SideNav`, `Modal` (`Dialog`), `Tabs` (`TabList`), `StatusBadge` (`Badge`), `States` (`EmptyState`/`Skeleton`/`Banner`), and `AdminUsers` (`Card`/`Table`) rate **good**; coexisting `@layer legacy` markup/CSS and `react-icons` usage across legacy route panels rate **needs work** until their incremental table/form rewrites land.
 
 ## Real-browser checks
 
-A throwaway Chrome (via the skill's CDP driver) rendered the **production
-build** against a representative mock API at the same response shapes the
-demo stack serves. Login was captured unauthenticated; authenticated pages
-used an injected session.
+Chrome rendered the **production build** (`vite preview`) against a representative mock API (`mock_api.mjs`) serving production response shapes:
 
-| Width | Screens checked | Result |
-|---|---|---|
-| 1440 | login, dashboard, connections, explorer, transfers, transfer detail, monitoring, admin users, wizard step 3 | all render, no crashes |
-| 768 | dashboard | no horizontal scroll; labelled off-canvas drawer |
-| 390 | dashboard, transfers, transfer detail | `document.scrollWidth === innerWidth` (no horizontal scroll) |
+- **Critical-path interactive smoke check (`smoke_check_browser.mjs`)**: **15 / 15 checks passed**, `consoleErrors: []`, `pageExceptions: []`.
+  - Authenticated `/login` sign-in flow redirecting to `/` (`Dashboard`).
+  - `/explorer?conn=...&schema=public&table=customer_orders&tab=preview` rendering table preview rows.
+  - `/transfers?status=running` selecting the Running tab and clicking `All` clearing `?status=running` from the URL.
+  - Clicking `#btn-new-transfer` opening native `<dialog open>`, advancing Step 1 (`Source`) → Step 2 (`Target`) → Step 3 (`Options` with column mappings), pressing `Escape` to trigger the `Discard` confirmation dialog, and confirming discard to close all dialogs cleanly.
+  - `/transfers/:id` rendering `role="progressbar"` (`aria-valuenow="87420"`) and execution log entries.
+  - `/connections`, `/monitoring?view=connections` (URL-synced tab), and `/admin/users` (`Table` rows).
+- **27-cell viewport matrix (`1440×900`, `768×1024`, `390×844` across all 9 routes)**: `0 FAIL` everywhere; all `768px` and `390px` captures recorded `0 FAIL / 0 WARN / overflowX: false`. Remaining `@1440px` WARNs are `[hero-void]` / `[panel-void]` below sparse sample data tables/cards.
 
-Measured at 390px on `/transfers`:
-`data-table-wrapper` client 316px / scroll 647px, and the tab strip
-321px / 316px — i.e. the table and tabs scroll **inside their own frames**
-and the first table column is sticky, per the app-screen phone rules. The
-page itself never scrolls sideways.
+## Direction, critique, and guidelines polish
 
-The wizard was driven through Source → Target → Options to confirm the
-`?new=1` deep link, the schema/table/column loading, the SQL filter hint and
-the column-mapping rows all work.
-
-## Before / after, side by side
-
-| Dimension | Before | After |
-|---|---|---|
-| Styling | one 2,210-line CSS file, amber/teal gradients + glass + glows | one token-based CSS file, three-layer tokens |
-| KPIs | 6 icon-topped gradient cards + a 48px gradient number | one divided 6-cell container, 26px tabular values, no icons |
-| Navigation | 260px labelled sidebar, coloured active pill + pulsing dot | 56px icon rail, 1px accent line as the only selection mark |
-| Transfer detail | modal state, not shareable | `/transfers/:id` route with live rows/sec, freshness, stale state, logs |
-| Admin users | tab inside Monitoring | `/admin/users` route, role-gated |
-| URL state | none | `?status=`, `?new=1`, `?conn=&schema=&table=&tab=`, `?view=` |
-| States | spinner + top-of-form error list | flat skeletons, inline errors, empty frames, freshness/stale, real zero / grey dash |
-| Forms | generic placeholders, error list | label + inline error via `aria-describedby`, visible rules, focus to first error |
-| Dates/numbers | `toLocale*` | `Intl.DateTimeFormat` / `Intl.NumberFormat` |
-| Toasts | hardcoded colours | semantic tokens + `aria-live="polite"` |
-| Accessibility | partial | committed WCAG 2.2 AA, skip link, labelled main landmark, `focus-visible`, reduced motion |
-
-## Per-screen UX specs and review
-
-`design/ux/` holds one UX spec per screen plus the interaction pattern
-library. Each spec records the screen's one question, states, data sources,
-URL state, keyboard flow and 7 testable acceptance criteria. The review
-verdict is **APPROVED** (0 blocking, 0 advisory, 0 unassessed dimensions) in
-`design/ux/REVIEW.md`.
-
-Spec authoring surfaced six real WCAG 2.2 AA gaps, all fixed before the
-review: WAI-ARIA tabs with roving focus and `tabpanel` semantics (new
-`components/Tabs.jsx`, 4 unit tests), the transfer-detail cancel dialog now
-reuses the focus-trapping `Modal`, the wizard discard `window.confirm` became
-an in-app dialog, `role="progressbar"` with aria values on both progress
-bars, `role="status"` on every loading overlay, and `Intl` + `aria-live` on
-the admin users view. See `design/ux/REVIEW.md` for the full table.
-
-## Not run / limitations
-
-- The **full Docker demo stack** (Postgres + MySQL + Redis + Celery + backend)
-  was not started; the browser checks used a mock API with the same response
-  shapes. A manual pass against a real transfer is still recommended before
-  merge.
-- The taste `inspect.mjs` was run against the **login page** (0 FAIL, 2 WARN:
-  the deliberate centred-card rest and 12px labels, both allowed on app
-  screens). It was not run against authenticated pages because its driver has
-  no session-injection flag; those pages were measured with the CDP driver
-  instead.
-- No axe-core automated accessibility run; the WCAG 2.2 AA tier was applied
-  by inspection against the Vercel Web Interface Guidelines checklist.
-- Contrast was checked by the token values (`#8a8c92` on `#131217` ≥ 4.5:1),
-  not by a pixel sampler.
+- **Data Terminal preserved**: Rejected `design-taste-frontend/scripts/draw.mjs --app` (`True-black flat`, which stripped surface tone separation and the `#4a8ad6` selection bar) and `ui-ux-pro-max --design-system` (light Flat Design `#F8FAFC`/`#2563EB`/`Inter`). Kept the dark Data Terminal palette (`#171719` canvas, `#131217` card/rail, `#4a8ad6` 1px accent selection line) with `IBM Plex Sans` + `JetBrains Mono`.
+- **Round 1–3 visual fixes**: Consolidated `mobileNav={{ breakpoint: 'lg' }}` on `AppShell`, prevented status badge wrapping (`whiteSpace: 'nowrap', flexShrink: '0'`), widened `AdminUsers` email column (`minWidth: 265`), kept `.detail-head` back action compact, added inline wizard validation (`setWizardErrors`), aligned `--chart-1: var(--accent)`, aligned `.grid-2 { align-items: start; }`, and compacted `@media (max-width: 900px)` `.data-table` padding.
+- **Web Interface Guidelines & React best-practice fixes**: Added `:focus-visible` outlines and dark `<option>` styling on legacy `.form-input`/`.form-select`, `scroll-margin-top: 24px` on `h1, h2, h3`, `autoComplete="off"` + `spellCheck={false}` on non-auth identifier fields, real `href="/connections"` navigation link on Explorer empty state, and hoisted `Intl.NumberFormat`/`Intl.DateTimeFormat` instances to module scope across 7 components/pages.
 
 ## Screenshots
 
-All nine `docs/screenshots/` files were recaptured from the production build
-at 1440×900. Total size fell from ~7.7 MB to ~464 KB.
+All nine `docs/screenshots/*.png` files were recaptured from the production build at `1440×900` and visually inspected. Total PNG size is `724,794` bytes (~708 KB, down from ~7.7 MB baseline).
+
+## Per-screen UX specs and review
+
+`design/ux/` holds all 8 screen specs updated cleanly with Astryx component-inventory deltas (`design/ux/interaction-patterns.md` and `design/DESIGN-SYSTEM.md` updated to match `defineTheme`, cascade layers, and `theme targets`). `/ux-review all` verdict is **APPROVED** in `design/ux/REVIEW.md` against the committed WCAG 2.2 AA tier (`design/accessibility-requirements.md`); game-oriented inputs (`GDD`, `engine`, `gamepad`) are explicitly marked `N/A`.
+
+## Not run / limitations
+
+- **Full Docker demo stack** (Postgres + MySQL + Redis + Celery + FastAPI backend): NOT started; browser verification used mock `/api/*` endpoints. Run a manual live-transfer verification against the Docker demo stack before merge.
+- **Remote GitHub Actions PR status**: NOT verified remotely (`gh` CLI unauthenticated locally).
+- **Node 20 CI/Docker vs Astryx CLI**: `@astryxdesign/cli@0.7.16` requires Node `>=22.13.0` (`engines.node`), whereas `frontend-quality`, `frontend-tests`, and `frontend/Dockerfile` (`node:20-alpine`) target Node 20 (matching `npm ci` + `npm run build` without invoking the CLI). Added a dedicated `frontend-theme` job in `.github/workflows/ci.yml` pinned to Node 22 for `npm run theme:check` and `npm run astryx -- doctor --built dist`.
+- **Automated accessibility & pixel contrast**: No `axe-core` scan and no pixel-sampled contrast run were executed; WCAG 2.2 AA conformance was verified by token math and code/DOM inspection.
+- **Engine / game-pipeline validation**: **N/A** / `NOT ASSESSED` (web SPA, no game engine).
