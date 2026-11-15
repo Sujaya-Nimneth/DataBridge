@@ -33,14 +33,14 @@
 
 Zones: `.page-container`; for admins a `.detail-head` (back link to Monitoring), `.page-header` (h1 "Users" + `.page-finding`, `.page-header-actions` with "Refresh"), an optional `.alert.alert-danger`, then one `.card` "Registered users" containing either `SkeletonRows`, an `.empty-state`, or a `.data-table-wrapper` → `.data-table`. Non-admins get only an `h1` and one `.empty-state` card.
 
-| Zone / component | Real class names (`frontend/src/index.css`, `AdminUsers.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/AdminUsers.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.detail-head`, `.page-header`, `.page-header-actions`, `.page-finding`, `.mt-6` |
-| Back / refresh | `.btn`, `.btn-ghost`, `.btn-sm`, `.btn-secondary` |
-| Error | `.alert`, `.alert-danger`, `.btn-sm` |
-| Table | `.card`, `.data-table-wrapper`, `.data-table`, `.object-name`, `.text-sm`, `.text-muted`, `.text-right` |
-| Badges | `.badge`, `.badge-dot`, `.badge-warning` (admin role / inactive status), `.badge-neutral` (non-admin role), `.badge-success` (active), `.badge-danger` (inactive) |
-| Loading / empty | `.skeleton`, `.skeleton-rows` (`SkeletonRows rows={4}`), `.empty-state` |
+| Page frame / header | Astryx `<VStack gap={4} padding={4}>`, `<div className="detail-head">`, `<HStack gap={4} align="center" justify="between">`, Astryx `<Heading level={1}>`, `<Text type="supporting" color="secondary">` |
+| Back / refresh | `<Link className="btn btn-ghost btn-sm" to="/monitoring">`, Astryx `<Button label="Refresh" variant="secondary" isDisabled={loading} />` |
+| Error | `<InlineError>` (`States.jsx` -> Astryx `<Banner variant="critical">` + `<Button variant="secondary" size="sm">Retry</Button>`) |
+| Table | Astryx `<Card padding={0}>`, Astryx `<Table density="compact" dividers="rows" hasHover>` (`proportional` / `pixel` widths, `columns`), `<Text>` |
+| Badges | `<StatusBadge>` (`components/StatusBadge.jsx` -> `@astryxdesign/core/Badge`, `variant="warning" | "neutral" | "positive" | "negative"`) |
+| Loading / empty | `<SkeletonRows rows={4} />` (`@astryxdesign/core/Skeleton`), `<EmptyState>` (`@astryxdesign/core/EmptyState`) |
 
 Table columns (`scope="col"`): Name, Email, Role, Status, Connections, Transfers, Joined.
 

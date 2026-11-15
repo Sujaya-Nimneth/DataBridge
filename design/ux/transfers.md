@@ -33,15 +33,15 @@
 
 Zones: `.page-container`; `.page-header` (h1 "Data transfers", subtitle "Move data between configured database connections", `.page-header-actions` with "New transfer"); one `.card` "Transfer history" containing `.card-header`, `.tabs` (5 status filters) and either an `.empty-state` or a `.data-table-wrapper` → `.data-table`; up to two `Modal`s: the 4-step "New transfer" wizard and the "Cancel Transfer" confirmation.
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Transfers.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Transfers.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / header | `.page-container`, `.page-header`, `.page-header-actions` |
+| Page frame / header | `.page-container`, `.page-header`, Astryx `<Heading level={1}>`, `.page-header-actions`, `<Button label="New transfer" variant="primary" icon={<HiOutlinePlus />} />` |
 | History card | `.card`, `.card-header`, `.card-title`, `.card-subtitle` |
-| Status filter tabs | `.tabs`, `.tab`, `.tab.active` (1px `::after` accent line), `role="tablist"` |
-| Table | `.data-table-wrapper`, `.data-table`, `.transfer-endpoint-name`, `.transfer-arrow`, `.transfer-progress-cell`, `.progress-bar`, `.progress-bar-spaced`, `.progress-fill`, `.progress-fill.animated`, `.badge` + `.badge-*`, `.badge-dot`, `.font-mono`, `.text-xs`, `.text-sm`, `.text-muted` |
-| Row actions | `.btn`, `.btn-ghost`, `.btn-sm`, `.btn-danger-icon`, `.flex`, `.gap-2` |
-| Empty state | `.empty-state`, `.empty-state-icon`, `.btn-secondary` |
-| Wizard modal | `.modal-overlay`, `.modal`, `.modal-header`, `.modal-body`, `.modal-footer`, `.wizard-steps`, `.wizard-steps-spaced`, `.wizard-step-group`, `.wizard-step`, `.wizard-step-label`, `.wizard-connector`, `.wizard-error-list`, `.alert-danger` |
+| Status filter tabs | `TabList` (`components/Tabs.jsx` -> Astryx `<TabList>` / `<Tab>` + 1px `--accent` `tab-indicator`, `role="tablist"`) |
+| Table | `.data-table-wrapper`, `.data-table`, `.transfer-endpoint-name`, `.transfer-arrow`, `.transfer-progress-cell`, Astryx `<ProgressBar variant="accent" isLabelHidden />`, `<StatusBadge>` (`@astryxdesign/core/Badge`), `.font-mono`, `.text-xs`, `.text-sm`, `.text-muted` |
+| Row actions | Astryx `<Button variant="ghost" size="sm" icon={...} ariaLabel={...} />`, `.flex`, `.gap-2` |
+| Empty state | `<EmptyState>` (`@astryxdesign/core/EmptyState`), `<Button variant="secondary" label="Show all" />` |
+| Wizard & discard modals | `<Modal maxWidth="600px">` & `<Modal maxWidth="440px">` (`@astryxdesign/core/Dialog purpose="form"` + `DialogHeader` + `Layout`/`LayoutContent`/`LayoutFooter`), `<Button variant="destructive" label="Discard" />`, `.wizard-steps`, `.wizard-steps-spaced`, `.wizard-step-group`, `.wizard-step`, `.wizard-step-label`, `.wizard-connector`, `.wizard-error-list`, `.alert-danger` (step gating rendered inline inside Modal) |
 | Wizard fields | `.form-group`, `.form-label`, `.form-input`, `.form-select`, `.form-hint`, `.form-checkbox`, `.column-mapping-section`, `.column-mapping-row`, `.column-mapping-name`, `.column-mapping-type`, `.column-mapping-rename`, `.form-input-sm` |
 | Review summary | `.transfer-summary`, `.transfer-summary-grid`, `.transfer-summary-arrow`, `.transfer-summary-extra`, `.field-label` |
 | Loading / toasts | `.loading-overlay`, `.spinner`, `.spinner-lg`, `react-hot-toast` |

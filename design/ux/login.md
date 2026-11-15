@@ -33,15 +33,15 @@
 
 Zones: `.login-page` (full-viewport ground, centred); one `.login-card` containing `.login-header` (solid-ink "D" mark, `h1`, purpose `<p>`); a `<form>` with conditional field groups; a full-width submit button; and `.login-toggle` below the form.
 
-| Zone / component | Real class names (`frontend/src/index.css`, `Login.jsx`) |
+| Zone / component | Astryx & CSS inventory (`frontend/src/pages/Login.jsx`, `frontend/src/index.css`) |
 |---|---|
-| Page frame / card | `.login-page`, `.login-card` |
-| Header | `.login-header`, `.login-logo`, `h1`, `<p>` |
-| Form / fields | `.form-group`, `.form-label`, `.form-input`, `.input-invalid`, `.form-hint`, `.form-error` |
-| Server/form error | `.alert`, `.alert-danger` (`role="alert"`) |
-| Submit | `.btn`, `.btn-primary`, `.w-full`, `.btn-lg`, `.spinner` |
-| Mode toggle | `.login-toggle`, `.login-toggle button` |
-| Toasts | `Toaster` from `react-hot-toast` (`position="top-right"`, `role="status"`, `aria-live="polite"`) |
+| Page frame / card | `.login-page`, Astryx `<Card className="login-card" padding={6}>` |
+| Header | `<VStack gap={4}>`, `.login-header`, `.login-logo`, Astryx `<Heading level={1}>`, `<Text color="secondary">` |
+| Form / fields | `<VStack gap={3}>`, Astryx `<TextInput>` (`type`, `value`, `onChange`, `autoComplete`, `spellCheck`, `hint`, `error`, `isRequired`) |
+| Server error | Astryx `<Banner variant="critical">` (inside `role="alert"` / `aria-live="assertive"` wrapper) |
+| Submit | Astryx `<Button type="submit" variant="primary" size="lg" isLoading={loading}>` (`.w-full`) |
+| Mode toggle | `.login-toggle`, `<HStack gap={2} align="center" justify="center">`, `<Text color="secondary">`, `<button type="button">` |
+| Toasts | `Toaster` from `react-hot-toast` (`position="top-right"`, themed via `databridgeTheme`) |
 
 Field inventory (ids): `input-fullname` (register only), `input-email`, `input-password`, `input-confirm-password` (register only), `btn-login-submit`, `btn-toggle-auth`.
 

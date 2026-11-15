@@ -1,12 +1,15 @@
 # Interaction Pattern Library — DataBridge
 
-Reusable patterns for the Web app screens. All class names are real, from
-`frontend/src/index.css`; the primitives live in `frontend/src/components/`
-(`Modal.jsx`, `States.jsx`, `Sidebar.jsx`). Aligned with
-[DESIGN-SYSTEM.md](../DESIGN-SYSTEM.md) and the committed
-[WCAG 2.2 AA tier](../accessibility-requirements.md). Web, desktop-first;
-keyboard/mouse primary, touch secondary. Sound is **N/A** — DataBridge is a web
-data tool with no audio layer; every confirmation is visual and textual.
+Reusable patterns for the Web app screens. Shared primitives in
+`frontend/src/components/` (`Modal.jsx`, `Tabs.jsx`, `States.jsx`,
+`StatusBadge.jsx`, `Sidebar.jsx`) wrap `@astryxdesign/core` components styled
+through `databridgeTheme` (`frontend/src/themes/databridge.ts`), while route
+grids and remaining legacy controls read layered rules from
+`frontend/src/index.css`. Aligned with [DESIGN-SYSTEM.md](../DESIGN-SYSTEM.md)
+and the committed [WCAG 2.2 AA tier](../accessibility-requirements.md). Web,
+desktop-first; keyboard/mouse primary, touch secondary. Sound is **N/A** —
+DataBridge is a web data tool with no audio layer; every confirmation is visual
+and textual.
 
 ---
 
@@ -16,7 +19,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: never two `btn-primary` in one header; never a coloured button for a link (use `<Link>`/`.btn-ghost`); never `btn-danger` for a reversible edit. Do not use a `<div onClick>` as a button.
 - **States**: default, `:hover` (tone step only), `:focus-visible` (2px `--accent` outline, offset 2px), `:disabled` (opacity, `cursor` unchanged, no hover), loading (inline `.spinner` + a `…` label, e.g. "Signing in…"). Size modifiers: `btn-sm`, `btn-lg`, `btn-icon`, `w-full`; `btn-danger-icon` tints an icon-only ghost on hover.
 - **Accessibility**: native `<button type="button">` (or `type="submit"` in forms); icon-only buttons require `aria-label`; decorative icons `aria-hidden="true"`; ≥ 44×44 touch target; `touch-action: manipulation`. Keep the same verb through the flow ("Save changes" → toast "Changes saved").
-- **Implementation notes**: `.btn` uses `--control-height: 34px` base with `radius-control: 4px`; `.btn-primary` uses the single accent fill decision, `.btn-ghost` is transparent. No `transition: all` (only `color`/`background` via `--t-fast`). See `App.jsx` `<Toaster>` for feedback styling.
+- **Implementation notes**: Primary, secondary, ghost, and destructive actions use Astryx `<Button>` (`@astryxdesign/core/Button`, props: `label`, `variant="primary" | "secondary" | "destructive" | "ghost"`, `size="sm" | "md" | "lg"`, `icon`, `isLoading`, `isDisabled`, `href`, `ariaLabel`) themed by `button` in `databridge.ts` (`--radius-element: 4px`). React Router `<Link className="btn ...">` and the wizard final-commit `.btn-success` read layered rules from `index.css`. No `transition: all`. See `App.jsx` `<Toaster>` for feedback styling.
 
 ## Tabs (1px accent line)
 
@@ -24,7 +27,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for navigation between screens (use `Sidebar` `NavLink`), for steps in a sequence (use the wizard indicator), or for a single view. Never use a filled/coloured active pill; the accent is a line only.
 - **States**: default `color: var(--muted)`, `:hover` → `--text`, `.active` → `--text` + `::after` line, `:focus-visible`. The `.tabs` strip is `overflow-x: auto` so long label sets scroll in their own frame.
 - **Accessibility**: `role="tablist"` on `.tabs`, `role="tab"`, `aria-selected`, and (`Monitoring`, `Explorer`) `aria-controls` / matching `role="tabpanel"` + `aria-labelledby`. Committed tier also expects arrow-key roving focus; current implementation uses plain Tab-through-DOM buttons (a known gap). Colour is never the only indicator — the active state also changes ink and gets the line.
-- **Implementation notes**: `.tab` is a transparent `<button>` with `white-space: nowrap`; `.tab.active::after` is the only accent. `setTab` / `setStatusFilter` write the URL param with `replace: true`; Explorer deletes `tab` for `columns` and sets `tab=preview`.
+- **Implementation notes**: `TabList` (`frontend/src/components/Tabs.jsx`) wraps `@astryxdesign/core/TabList` (`<TabList>` + `<Tab>`, WAI-ARIA arrow-key / Home / End roving focus implemented natively). `databridge.ts` styles the `tab` and `tab-indicator` theme targets so only a 1px `--color-accent` line highlights selection (`height: 1px`, `borderRadius: 0px`). `setTab` / `setStatusFilter` write the URL param with `replace: true`; Explorer deletes `tab` for `columns` and sets `tab=preview`.
 
 ## Modal / dialog
 
@@ -32,7 +35,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for a shareable/stateful view — transfer detail was promoted to `/transfers/:id` so it deep-links and Back is predictable; admin Users was promoted out of a Monitoring tab. Avoid stacking modals.
 - **States**: closed (portal unmounted), open (`role="dialog"`, `aria-modal="true"`, `aria-label={title}`, `body.no-scroll` locked), overlay mousedown on the backdrop closes, `Escape` closes, footer present/absent, `maxWidth` variants (default 540px, wizard 600px, confirm 440px).
 - **Accessibility**: focus trap over `a[href]`/`button`/`input`/`select`/`textarea`/`[tabindex]`, initial focus on the first focusable element, `Escape` close with `stopPropagation`, and focus restored to `previouslyFocused` on unmount. `modal-close` has `aria-label="Close dialog"`. This behaviour is a documented "keep"; `TransferDetail`'s custom `.confirm-dialog[role="alertdialog"]` is a partial implementation (Escape + labels, no trap/restore) and must not be copied as the standard.
-- **Implementation notes**: `createPortal(..., document.body)`. The `.modal` is the one element allowed `--shadow`. `Transfers.requestCloseWizard` additionally calls `window.confirm` when the form has content and a `beforeunload` guard is registered while the wizard is open.
+- **Implementation notes**: `Modal` (`frontend/src/components/Modal.jsx`) wraps `@astryxdesign/core/Dialog` (`<Dialog isOpen onOpenChange purpose="form" width={maxWidth}>` + `<DialogHeader title onOpenChange>`) and `<Layout>` / `<LayoutContent>` / `<LayoutFooter>` over native `<dialog showModal()>`, with Escape handling, backdrop dismiss, focus trap, and focus restoration. Also hosts the `Transfers` discard-wizard modal (replacing `window.confirm` with `<Button variant="destructive" label="Discard">`, plus `beforeunload`) and `TransferDetail` cancel confirmation. The dialog surface is the one element allowed `--shadow-med`.
 
 ## Toast
 
@@ -48,7 +51,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: as decoration, as a "live" pulse, or when the total is unknown. When `total_rows` is null the detail screen hides the bar and prints "Row total not available yet".
 - **States**: filled (`width: ${pct}%`, `Math.min(100, ...)`), empty (0%), unknown (bar absent + text), running (`.progress-fill.animated` in the list — note `::after { content: none }`, so there is no shimmer/pulse). `progress-bar-spaced` adds 6px top margin in table cells.
 - **Accessibility**: always accompanied by a text figure ("N / M rows", "N% of M rows", "N (N%)"). `.progress-bar` itself has no `progressbar` role in the current build (a gap against the committed tier); the numeric text is the accessible equivalent.
-- **Implementation notes**: `.progress-bar` is a 6px `--raised` track with `radius-pill`; `.progress-fill` is `--chart-1` (white), `transition: width var(--t-base)`, no glow. Detail overrides to `height: 8px`.
+- **Implementation notes**: Running transfers (`Transfers.jsx`) and detail progress (`TransferDetail.jsx`) render `@astryxdesign/core/ProgressBar` (`label`, `value`, `max`, `isLabelHidden`, `variant="accent"`, built-in `role="progressbar"` ARIA attributes) rather than custom `.progress-bar` tracks. Monitoring distribution rows use `.distribution-bar` / `.distribution-fill` with `--chart-1: var(--accent)`. No shimmer, no glow.
 
 ## Status badge / pill
 
@@ -56,7 +59,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: as a button, as a KPI value, in a page title, or as a saturated coloured chip. Pills live inside rows only; at most one red mark per object.
 - **States**: `badge-success` (completed/success/active), `badge-primary` / `badge-info` (running, `db_type`, FK), `badge-warning` (pending, admin role, PK), `badge-danger` (failed, inactive), `badge-neutral` (cancelled/unknown). Each maps to a pale `--pill-*-bg` + dark `--pill-*-ink` pair. `badge-dot` is a 6px `currentColor` dot.
 - **Accessibility**: the status word is always rendered as text beside the dot; never colour-only. `badge-dot` is `aria-hidden="true"`. Status enums come from the API and should be localised as labels.
-- **Implementation notes**: `.badge` is `inline-flex`, `radius-pill`, `--fs-meta`, `white-space: nowrap`. Status→class maps are local helpers in each page (`statusBadge`, `getStatusBadge`) and fall back to `badge-neutral`. Log levels use `.log-level.info|warning|error` instead of a pill.
+- **Implementation notes**: `StatusBadge` (`frontend/src/components/StatusBadge.jsx`) wraps `@astryxdesign/core/Badge` (`<Badge variant={resolved} label={label ?? status} />`). `databridge.ts` styles `badge` (`borderRadius: var(--radius-full)`, `whiteSpace: nowrap`, `flexShrink: 0`) and accessible muted pairs for `variant:neutral | info | success | warning | error`. `Monitoring` `db_type` uses `<Badge variant="info">`; log levels use `.log-level.info|warning|error`.
 
 ## Inline form validation
 
@@ -64,7 +67,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for a whole-block load failure (use `.alert-danger`), or for an informational hint (use `.form-hint`).
 - **States**: valid (no message), hint (`form-hint`, e.g. "At least 8 characters.", "Whole number, 1–65535.", "Stored encrypted."), invalid (`.input-invalid`, `.form-error[role="alert"]`), error list (`.wizard-error-list` inside `.alert-danger`), clear-on-edit (`updateForm`, `setFormErrors({})`, `setWizardErrors([])`).
 - **Accessibility**: `aria-invalid="true"`, `aria-describedby` pointing at the error/hint id, `role="alert"` on the message, and focus moved to the first error on submit (`#input-confirm-password`, `#input-port`). Forms use `noValidate`, real `<label htmlFor>`, `autocomplete`, `type`/`inputmode`, `spellCheck="false"` on emails/usernames, and paste is never blocked.
-- **Implementation notes**: `.form-error` uses the negative pill ink; `.input-invalid` strengthens the control border. `Transfers` step gating uses a toast for missing required selects (an inline error would be preferable for keyboard users — see concerns).
+- **Implementation notes**: `Login.jsx` renders `@astryxdesign/core/TextInput` (`error`, `hint`, `isRequired`) and `<Banner variant="critical">` for form errors; legacy forms in `Connections` and `Transfers` use `.form-error` and `.input-invalid`. In `Transfers.jsx`, wizard step 1/2 gating now writes into `wizardErrors` rendered inside `<Modal>` rather than `toast.error` behind `<dialog>::backdrop`.
 
 ## Table
 
@@ -72,7 +75,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for one record (use the `.transfer-summary-grid`), for a short KPI set (use `.stats-grid`), or for hierarchical data (use the tree).
 - **States**: populated, empty (the surrounding `.empty-state`, not an empty `<tbody>`), loading (`SkeletonRows` or `.skeleton` bars), hover (`.data-table tr:hover td` → `--raised`), sticky-first-column at ≤ 640px.
 - **Accessibility**: semantic `<table>`/`<thead>`/`<th scope="col">` where set (`AdminUsers`, `Monitoring`), `font-variant-numeric: tabular-nums`. No zebra striping (`tbody tr:nth-child(even)` is explicitly reset to transparent). Icon-only action cells have `aria-label`.
-- **Implementation notes**: `.data-table-wrapper` is `overflow-x: auto`; `td` uses `--row-height: 42px` and a `--rule` bottom border. At ≤ 640px `th/td` are `white-space: nowrap`, the first column is `position: sticky; left: 0` with `--surface` background, so the page never scrolls sideways.
+- **Implementation notes**: `AdminUsers.jsx` uses `@astryxdesign/core/Table` (`density="compact"`, `dividers="rows"`, `hasHover`, `proportional`/`pixel` column widths, themed via `table` target `fontVariantNumeric: 'tabular-nums'`). `Explorer`, `Transfers`, and `Monitoring` retain `.data-table-wrapper` (`overflow-x: auto`) and `.data-table` with reduced tablet padding (`≤ 900px`) and sticky first column (`≤ 640px`).
 
 ## Tree
 
@@ -88,7 +91,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for a refresh of already-visible values (keep old values, update the `Freshness` stamp), or where the real dimensions are unknown (Connections/Explorer/Transfers instead use `.loading-overlay` + `.spinner.spinner-lg`).
 - **States**: flat grey `.skeleton` bars at the real value sizes (e.g. 70%×12 label, 45%×26 value, 100%×42 row); `aria-hidden="true"` on the container; no shimmer.
 - **Accessibility**: skeletons are `aria-hidden="true"`; `App.jsx`'s `PageFallback` adds `role="status" aria-live="polite"` and "Loading…" (strings end with `…`). Content is never hidden if the animation fails.
-- **Implementation notes**: `.skeleton` is `background: var(--raised)` + `radius-control`. The Dashboard disables the `enter` animation on `.stats-grid .stat-card` so skeletons do not fade in. Reduced motion keeps content (travel drops).
+- **Implementation notes**: `SkeletonBlock` and `SkeletonRows` (`frontend/src/components/States.jsx`) wrap `@astryxdesign/core/Skeleton` (`radius={1}`, no shimmer). The Dashboard disables the `enter` animation on `.stats-grid .stat-card` so skeletons do not fade in. Reduced motion keeps content (travel drops).
 
 ## Empty state
 
@@ -96,7 +99,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for an error (use `.alert-danger` + Retry) or for loading (use skeletons). Never show an empty table `<tbody>`.
 - **States**: frame + header retained, one `.empty-state-icon` (`aria-hidden`), an `h3` title, one sentence, and — where an action exists — the first action located where the data will appear ("Add a connection", "Transfer this table"). Some states are intentionally CTA-free ("No transfers yet" on Transfers, "Select a table" on Explorer).
 - **Accessibility**: `h3` under the screen's `h1`; decorative icon `aria-hidden="true"`; the CTA is a real `<button>`/`<Link>`. First-run copy states the setup progress at its true percentage where applicable.
-- **Implementation notes**: `.empty-state` keeps the `.card` frame; `loadFailed` on Explorer and the non-admin `Admins only` state reuse this shape for error/gating rather than an alert (documented per-screen).
+- **Implementation notes**: `EmptyState` (`frontend/src/components/States.jsx`) wraps `@astryxdesign/core/EmptyState` (`icon`, `title`, `action`) inside the card frame; `loadFailed` on Explorer and the non-admin `Admins only` state reuse this shape for error/gating rather than an alert (documented per-screen).
 
 ## Inline error
 
@@ -104,7 +107,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for a field value (inline form validation) or a purely transient mutation failure (toast).
 - **States**: message naming what failed, an optional "Last updated …" last-good clause, and a "Retry" `.btn-secondary.btn-sm`; `role="alert"`. Dashboard appends "Data below may be out of date."
 - **Accessibility**: `role="alert"`; Retry is a labelled button; the message includes a fix or next step; previously loaded data stays visible.
-- **Implementation notes**: `.alert-danger` uses `--pill-negative-bg` / `--pill-negative-ink` with a 1px `--negative` border and `radius-control`. `InlineError` is available in `States.jsx` but pages mostly render the same structure inline.
+- **Implementation notes**: `InlineError` (`frontend/src/components/States.jsx`) wraps `@astryxdesign/core/Banner` (`variant="critical"`, optional Retry `<Button variant="secondary" size="sm">`); used across `Dashboard`, `Connections`, `AdminUsers`, and `Login` (`<Banner variant="critical">`). Legacy `.alert-danger` stays inside the wizard error list inside `Transfers.jsx`.
 
 ## Freshness stamp
 
@@ -120,7 +123,7 @@ data tool with no audio layer; every confirmation is visual and textual.
 - **When NOT to Use**: for reversible edits (save directly), or for a routine navigation. Never rely on a browser `window.confirm` as the only in-app confirmation for a normal close (it is used only as the discard guard alongside modal state).
 - **States**: closed, open (`Modal` with `title="Delete Connection"` / `title="Cancel Transfer"`, `maxWidth="440px"`), footer "Keep connection" / "Keep Running" (secondary, safe) then "Delete connection" / "Cancel Transfer" (`btn-danger`); `TransferDetail` uses `.confirm-overlay` / `.confirm-dialog` with "Keep running" / "Cancel transfer". Unsaved wizard close shows `window.confirm('Discard this transfer? …')` and a `beforeunload` handler.
 - **Accessibility**: `Modal` gives `role="dialog"`, `aria-modal="true"`, focus trap, initial focus, Escape, focus restore. `TransferDetail`'s `alertdialog` has `aria-modal`, `aria-labelledby="cancel-title"` and Escape, but no focus trap or restore (a gap). Safe action is first in DOM order; destructive verb is specific ("Delete connection", not "OK").
-- **Implementation notes**: cancel calls `POST /transfers/:id/cancel`; delete calls `DELETE /connections/:id` and handles a 409 with a specific toast ("Connections with transfer history cannot be deleted"). Both reload their list after success.
+- **Implementation notes**: `AppShell` (`App.jsx`, `mobileNav={{ breakpoint: 'lg' }}`) + `Sidebar` (`SideNav`, `SideNavHeading`, `SideNavSection`, `SideNavItem` with 1px `--color-accent` `::before` bar) handle navigation and the mobile drawer (`≤ 1024px`). Confirm/cancel dialogs in `Connections`, `Transfers`, and `TransferDetail` all share `<Modal>` (`Dialog`); cancel calls `POST /transfers/:id/cancel` and delete calls `DELETE /connections/:id` (with 409 conflict toast). Both reload their list after success.
 
 ---
 
@@ -137,11 +140,11 @@ duration to `0.001ms` but never hides content.
 | `.stats-grid` | `enter` | 320ms, 70ms delay | 0.001ms | Dashboard/Monitoring KPI container |
 | `.page-container > .card`, `.grid-2 > .card`, `section.card` | `enter` | 320ms, 140ms delay | 0.001ms | Third in the stagger |
 | `.stats-grid .stat-card` (all 6) | `animation: none` | — | — | Skeletons/KPIs do not fade individually |
-| `.tab.active::after` | 1px accent line appears (colour transition on `.tab`) | `--t-fast` 150ms | 0.001ms | The signature selection line; no slide between tabs in the current build |
-| `.progress-fill` | `transition: width` | `--t-base` 220ms | 0.001ms | Real ratio only; `::after { content: none }` (no pulse) |
-| `.btn`, `.card:hover`, `.data-table tr:hover td` | colour/background tone step | `--t-fast` / `--t-base` | 0.001ms | Feedback on every control; no resting shadows |
+| `tab` / `tab-indicator` (`TabList`) | 1px accent indicator (`height: 1px`, `--color-accent`) | `--t-fast` 150ms | 0.001ms | The signature selection line via `databridgeTheme` target |
+| `ProgressBar` / `.progress-fill` | `transition: width` | `--t-base` 220ms | 0.001ms | Real ratio only; no pulse/shimmer |
+| `Button`, `.btn`, `.card:hover`, `.data-table tr:hover td` | colour/background tone step | `--t-fast` / `--t-base` | 0.001ms | Feedback on every control; no resting shadows |
 | `.spinner` / `.spinner-lg` | `@keyframes spin` | 0.7s linear infinite | iteration count 1 | Loading only; not an autoplay "live" loop over 5s |
-| `.sidebar` (≤ 1024px drawer) | `transform: translateX(-100%)`→0 | `--t-base` 220ms | 0.001ms | Mobile top bar + sheet drawer, kept over a bottom bar |
+| `AppShell` + `SideNav` (`mobileNav={{ breakpoint: 'lg' }}`, `≤ 1024px`) | sheet drawer transition | `--t-base` 220ms | 0.001ms | Mobile top bar + drawer below 1024px |
 | Toasts | react-hot-toast entrance | 4000ms visible duration | n/a | No glow, `boxShadow: 'none'` |
 
 **Sound**: N/A for a web data tool. There is no audio feedback, no sonification
