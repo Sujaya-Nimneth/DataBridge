@@ -12,9 +12,16 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check src",
+    "astryx": "node node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs",
+    "theme:build": "astryx theme build src/themes/databridge.ts",
+    "theme:check": "astryx theme build src/themes/databridge.ts --check"
   },
   "dependencies": {
+    "@astryxdesign/cli": "0.7.16",
+    "@astryxdesign/core": "0.7.16",
+    "@astryxdesign/theme-neutral": "0.7.16",
+    "@stylexjs/stylex": "^0.19.2",
     "axios": "^1.7.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
