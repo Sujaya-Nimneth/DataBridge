@@ -208,7 +208,11 @@ export const databridgeTheme = defineTheme({
       },
     },
     badge: {
-      base: { borderRadius: 'var(--radius-full)' },
+      base: {
+        borderRadius: 'var(--radius-full)',
+        whiteSpace: 'nowrap',
+        flexShrink: '0',
+      },
       'variant:neutral': {
         backgroundColor: 'var(--color-background-muted)',
         color: 'light-dark(#4b4c52, #bdbdc0)',

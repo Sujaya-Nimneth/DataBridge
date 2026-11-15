@@ -463,13 +463,14 @@ function Transfers() {
                       wizardStep === 1 &&
                       (!wizardForm.source_connection_id || !wizardForm.source_table)
                     ) {
-                      toast.error('Please select source connection and table');
+                      setWizardErrors(['Please select source connection and table.']);
                       return;
                     }
                     if (wizardStep === 2 && !wizardForm.target_connection_id) {
-                      toast.error('Please select target connection');
+                      setWizardErrors(['Please select target connection.']);
                       return;
                     }
+                    setWizardErrors([]);
                     if (wizardStep === 2 && !wizardForm.target_table) {
                       setWizardForm((prev) => ({ ...prev, target_table: prev.source_table }));
                     }

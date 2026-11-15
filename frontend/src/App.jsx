@@ -72,7 +72,13 @@ function AppLayout({ children }) {
   // AppShell owns the skip link, the main landmark, the responsive mobile nav
   // drawer and its focus trap/restore. Pages keep their own h1 inside children.
   return (
-    <AppShell contentPadding={0} height="auto" variant="surface" sideNav={<Sidebar />}>
+    <AppShell
+      contentPadding={0}
+      height="auto"
+      variant="surface"
+      mobileNav={{ breakpoint: 'lg' }}
+      sideNav={<Sidebar />}
+    >
       {children}
     </AppShell>
   );

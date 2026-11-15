@@ -403,7 +403,9 @@ export const databridgeTheme = {
         "color": "var(--color-text-gray)"
       },
       "base": {
-        "borderRadius": "var(--radius-full)"
+        "borderRadius": "var(--radius-full)",
+        "whiteSpace": "nowrap",
+        "flexShrink": "0"
       },
       "variant:info": {
         "backgroundColor": "var(--color-info-muted)",

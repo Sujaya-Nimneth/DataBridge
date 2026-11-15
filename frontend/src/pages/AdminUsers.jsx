@@ -19,7 +19,7 @@ import { Card } from '@astryxdesign/core/Card';
 import { Heading, Text } from '@astryxdesign/core/Text';
 import { VStack, HStack } from '@astryxdesign/core/Stack';
 import { Button } from '@astryxdesign/core/Button';
-import { Table, proportional } from '@astryxdesign/core/Table';
+import { Table, proportional, pixel } from '@astryxdesign/core/Table';
 import { HiOutlineArrowLeft } from 'react-icons/hi';
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
@@ -29,23 +29,25 @@ const columns = [
   {
     key: 'full_name',
     header: 'Name',
-    width: proportional(2),
+    width: proportional(2, { minWidth: 140 }),
     renderCell: (u) => u.full_name || '–',
   },
   {
     key: 'email',
     header: 'Email',
-    width: proportional(2),
-    renderCell: (u) => <Text type="supporting">{u.email}</Text>,
+    width: proportional(3, { minWidth: 265 }),
+    renderCell: (u) => <Text color="secondary">{u.email}</Text>,
   },
   {
     key: 'role',
     header: 'Role',
+    width: pixel(96),
     renderCell: (u) => <StatusBadge status={u.role} />,
   },
   {
     key: 'is_active',
     header: 'Status',
+    width: pixel(96),
     renderCell: (u) => (
       <StatusBadge
         status={u.is_active ? 'active' : 'inactive'}
@@ -56,19 +58,22 @@ const columns = [
   {
     key: 'connection_count',
     header: 'Connections',
+    width: pixel(110),
     align: 'end',
     renderCell: (u) => numberFormat.format(u.connection_count),
   },
   {
     key: 'transfer_count',
     header: 'Transfers',
+    width: pixel(100),
     align: 'end',
     renderCell: (u) => numberFormat.format(u.transfer_count),
   },
   {
     key: 'created_at',
     header: 'Joined',
-    renderCell: (u) => <Text type="supporting">{dateFormat.format(new Date(u.created_at))}</Text>,
+    width: pixel(128),
+    renderCell: (u) => <Text color="secondary">{dateFormat.format(new Date(u.created_at))}</Text>,
   },
 ];
 
@@ -122,11 +127,11 @@ function AdminUsers() {
 
   return (
     <VStack gap={4} padding={4}>
-      <Link className="detail-head" to="/monitoring">
-        <Text type="supporting">
+      <div className="detail-head">
+        <Link className="btn btn-ghost btn-sm" to="/monitoring">
           <HiOutlineArrowLeft aria-hidden="true" /> Monitoring
-        </Text>
-      </Link>
+        </Link>
+      </div>
 
       <HStack gap={4} align="center" justify="between">
         <VStack gap={1}>

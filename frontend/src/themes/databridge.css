@@ -510,6 +510,8 @@
 
   .astryx-badge {
     border-radius: var(--radius-full);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .astryx-badge[data-variant="info"] {

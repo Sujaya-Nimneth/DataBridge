@@ -83,7 +83,7 @@ function Login() {
             <Heading level={1}>
               {isRegister ? 'Create your account' : 'Sign in to DataBridge'}
             </Heading>
-            <Text type="supporting" color="secondary">
+            <Text color="secondary">
               {isRegister
                 ? 'Connect your databases and start moving data.'
                 : 'Connect to your databases, explore schemas, and run transfers.'}
@@ -111,7 +111,7 @@ function Login() {
                   id="input-fullname"
                   label="Full Name"
                   type="text"
-                  placeholder="Alex Kim…"
+                  placeholder="Alex Kim"
                   autoComplete="name"
                   hasSpellCheck={false}
                   value={form.fullName}
@@ -123,7 +123,7 @@ function Login() {
                 id="input-email"
                 label="Email Address"
                 type="email"
-                placeholder="name@company.com…"
+                placeholder="operator@databridge.local"
                 autoComplete="email"
                 hasSpellCheck={false}
                 value={form.email}
